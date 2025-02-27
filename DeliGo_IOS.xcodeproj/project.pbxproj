@@ -6,6 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2E8E5AD82D70C5CB00EE04B4 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5AD72D70C5CB00EE04B4 /* FirebaseAuth */; };
+		2E8E5ADA2D70C5CB00EE04B4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5AD92D70C5CB00EE04B4 /* FirebaseCore */; };
+		2E8E5ADC2D70C5CB00EE04B4 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5ADB2D70C5CB00EE04B4 /* FirebaseDatabase */; };
+		2E8E5ADE2D70C5CB00EE04B4 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5ADD2D70C5CB00EE04B4 /* FirebaseFirestore */; };
+		2E8E5AE02D70C5CB00EE04B4 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5ADF2D70C5CB00EE04B4 /* FirebaseInAppMessaging-Beta */; };
+		2E8E5AE22D70C5CB00EE04B4 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5AE12D70C5CB00EE04B4 /* FirebaseMessaging */; };
+		2E8E5AE42D70C5CB00EE04B4 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5AE32D70C5CB00EE04B4 /* FirebaseStorage */; };
+		2E8E5AE62D70C5CB00EE04B4 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 2E8E5AE52D70C5CB00EE04B4 /* FirebaseStorageCombine-Community */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		2E8051422D70AADC004B4341 /* DeliGo_IOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeliGo_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +34,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E8E5AE22D70C5CB00EE04B4 /* FirebaseMessaging in Frameworks */,
+				2E8E5ADC2D70C5CB00EE04B4 /* FirebaseDatabase in Frameworks */,
+				2E8E5AE62D70C5CB00EE04B4 /* FirebaseStorageCombine-Community in Frameworks */,
+				2E8E5ADE2D70C5CB00EE04B4 /* FirebaseFirestore in Frameworks */,
+				2E8E5ADA2D70C5CB00EE04B4 /* FirebaseCore in Frameworks */,
+				2E8E5AE42D70C5CB00EE04B4 /* FirebaseStorage in Frameworks */,
+				2E8E5AD82D70C5CB00EE04B4 /* FirebaseAuth in Frameworks */,
+				2E8E5AE02D70C5CB00EE04B4 /* FirebaseInAppMessaging-Beta in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +84,14 @@
 			);
 			name = DeliGo_IOS;
 			packageProductDependencies = (
+				2E8E5AD72D70C5CB00EE04B4 /* FirebaseAuth */,
+				2E8E5AD92D70C5CB00EE04B4 /* FirebaseCore */,
+				2E8E5ADB2D70C5CB00EE04B4 /* FirebaseDatabase */,
+				2E8E5ADD2D70C5CB00EE04B4 /* FirebaseFirestore */,
+				2E8E5ADF2D70C5CB00EE04B4 /* FirebaseInAppMessaging-Beta */,
+				2E8E5AE12D70C5CB00EE04B4 /* FirebaseMessaging */,
+				2E8E5AE32D70C5CB00EE04B4 /* FirebaseStorage */,
+				2E8E5AE52D70C5CB00EE04B4 /* FirebaseStorageCombine-Community */,
 			);
 			productName = DeliGo_IOS;
 			productReference = 2E8051422D70AADC004B4341 /* DeliGo_IOS.app */;
@@ -94,6 +121,9 @@
 			);
 			mainGroup = 2E8051392D70AADC004B4341;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E8051432D70AADC004B4341 /* Products */;
 			projectDirPath = "";
@@ -322,6 +352,60 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.9.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2E8E5AD72D70C5CB00EE04B4 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		2E8E5AD92D70C5CB00EE04B4 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		2E8E5ADB2D70C5CB00EE04B4 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		2E8E5ADD2D70C5CB00EE04B4 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		2E8E5ADF2D70C5CB00EE04B4 /* FirebaseInAppMessaging-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseInAppMessaging-Beta";
+		};
+		2E8E5AE12D70C5CB00EE04B4 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		2E8E5AE32D70C5CB00EE04B4 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		2E8E5AE52D70C5CB00EE04B4 /* FirebaseStorageCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2E8E5ABB2D70C2D400EE04B4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseStorageCombine-Community";
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2E80513A2D70AADC004B4341 /* Project object */;
 }
