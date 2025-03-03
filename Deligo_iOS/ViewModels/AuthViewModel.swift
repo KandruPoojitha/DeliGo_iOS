@@ -17,28 +17,39 @@ class AuthViewModel: ObservableObject {
     @Published var documentStatus: DocumentStatus = .notSubmitted
     @Published var showSuccessMessage = false
     
+    // User data properties
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
+    
+    var email: String? {
+        Auth.auth().currentUser?.email
+    }
+    
+    @Published var fullName: String?
+    @Published var phoneNumber: String?
     
     private let auth = Auth.auth()
     private let db = Database.database().reference()
     
     func login(email: String, password: String) {
+        guard !email.isEmpty && !password.isEmpty else {
+            errorMessage = "Please enter email and password"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         print("Starting login process for email: \(email)")
         
         auth.signIn(withEmail: email, password: password) { [weak self] result, error in
             guard let self = self else { return }
-            print("Login attempt completed")
             
-            DispatchQueue.main.async {
-                self.isLoading = false
-                
-                if let error = error {
+            if let error = error {
+                DispatchQueue.main.async {
+                    self.isLoading = false
                     print("Login error: \(error.localizedDescription)")
-                    // Handle specific error cases
+                    
                     switch error {
                     case AuthErrorCode.wrongPassword:
                         self.errorMessage = "Invalid email or password"
@@ -47,83 +58,161 @@ class AuthViewModel: ObservableObject {
                     case AuthErrorCode.userNotFound:
                         self.errorMessage = "No account found with this email"
                     default:
-                        self.errorMessage = error.localizedDescription
+                        self.errorMessage = "Authentication failed: \(error.localizedDescription)"
                     }
-                    return
                 }
-                
-                if let userId = result?.user.uid {
-                    print("Login successful for user: \(userId)")
-                    // Check if user is admin first
-                    self.checkAdminRole(userId: userId)
-                }
+                return
+            }
+            
+            if let userId = result?.user.uid {
+                print("Login successful for user: \(userId)")
+                self.checkUserRoleAndRedirect(userId: userId)
             }
         }
     }
     
-    private func checkAdminRole(userId: String) {
-        db.child("admins/\(userId)").observeSingleEvent(of: .value) { [weak self] snapshot in
+    private func checkUserRoleAndRedirect(userId: String) {
+        // First check if user is admin
+        db.child("admins").child(userId).observeSingleEvent(of: .value) { [weak self] snapshot in
             guard let self = self else { return }
             
             if snapshot.exists() {
                 print("Found admin user")
+                if let userData = snapshot.value as? [String: Any] {
+                    self.updateUserData(from: userData)
+                }
                 DispatchQueue.main.async {
                     self.currentUserRole = .admin
                     self.isAuthenticated = true
+                    self.isLoading = false
                 }
-            } else {
-                // If not admin, check other roles
-                self.checkOtherRoles(userId: userId)
+                return
             }
+            self.checkInCustomers(userId: userId)
+        } withCancel: { [weak self] error in
+            self?.handleDatabaseError(error)
         }
     }
     
-    private func checkOtherRoles(userId: String) {
-        for role in UserRole.allCases where role != .admin {
-            let rolePath = "\(role.rawValue.lowercased())s/\(userId)"
-            db.child(rolePath).observeSingleEvent(of: .value) { [weak self] snapshot in
-                guard let self = self else { return }
-                
-                if snapshot.exists() {
-                    print("Found user role: \(role.rawValue)")
-                    
-                    if role == .restaurant {
-                        self.checkDocumentStatus(userId: userId)
-                    } else {
-                        DispatchQueue.main.async {
-                            self.currentUserRole = role
-                            self.isAuthenticated = true
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private func checkDocumentStatus(userId: String) {
-        db.child("restaurants/\(userId)/documents").observeSingleEvent(of: .value) { [weak self] snapshot in
+    private func checkInCustomers(userId: String) {
+        db.child("customers").child(userId).observeSingleEvent(of: .value) { [weak self] snapshot in
             guard let self = self else { return }
             
-            DispatchQueue.main.async {
-                if let documentsData = snapshot.value as? [String: Any],
+            if snapshot.exists() {
+                print("Found customer user")
+                if let userData = snapshot.value as? [String: Any] {
+                    self.updateUserData(from: userData)
+                }
+                DispatchQueue.main.async {
+                    self.currentUserRole = .customer
+                    self.isAuthenticated = true
+                    self.isLoading = false
+                }
+                return
+            }
+            self.checkInDrivers(userId: userId)
+        } withCancel: { [weak self] error in
+            self?.handleDatabaseError(error)
+        }
+    }
+    
+    private func checkInDrivers(userId: String) {
+        db.child("drivers").child(userId).observeSingleEvent(of: .value) { [weak self] snapshot in
+            guard let self = self else { return }
+            
+            if snapshot.exists() {
+                print("Found driver user")
+                if let userData = snapshot.value as? [String: Any] {
+                    self.updateUserData(from: userData)
+                }
+                let documentsSubmitted = snapshot.childSnapshot(forPath: "documentsSubmitted").value as? Bool ?? false
+                
+                DispatchQueue.main.async {
+                    self.currentUserRole = .driver
+                    self.documentStatus = documentsSubmitted ? .approved : .notSubmitted
+                    self.isAuthenticated = true
+                    self.isLoading = false
+                }
+                return
+            }
+            self.checkInRestaurants(userId: userId)
+        } withCancel: { [weak self] error in
+            self?.handleDatabaseError(error)
+        }
+    }
+    
+    private func checkInRestaurants(userId: String) {
+        db.child("restaurants").child(userId).observeSingleEvent(of: .value) { [weak self] snapshot in
+            guard let self = self else { return }
+            
+            if snapshot.exists() {
+                print("Found restaurant user")
+                if let userData = snapshot.value as? [String: Any] {
+                    self.updateUserData(from: userData)
+                }
+                if let documentsData = snapshot.childSnapshot(forPath: "documents").value as? [String: Any],
                    let status = documentsData["status"] as? String {
-                    switch status {
-                    case "pending":
-                        self.documentStatus = .pending
-                    case "approved":
-                        self.documentStatus = .approved
-                    case "rejected":
-                        self.documentStatus = .rejected
-                    default:
-                        self.documentStatus = .notSubmitted
+                    DispatchQueue.main.async {
+                        self.currentUserRole = .restaurant
+                        switch status {
+                        case "pending":
+                            self.documentStatus = .pending
+                        case "approved":
+                            self.documentStatus = .approved
+                        case "rejected":
+                            self.documentStatus = .rejected
+                        default:
+                            self.documentStatus = .notSubmitted
+                        }
+                        self.isAuthenticated = true
+                        self.isLoading = false
                     }
                 } else {
-                    self.documentStatus = .notSubmitted
+                    DispatchQueue.main.async {
+                        self.currentUserRole = .restaurant
+                        self.documentStatus = .notSubmitted
+                        self.isAuthenticated = true
+                        self.isLoading = false
+                    }
                 }
-                
-                self.currentUserRole = .restaurant
-                self.isAuthenticated = true
+                return
             }
+            
+            // User not found in any role
+            DispatchQueue.main.async {
+                self.errorMessage = "User role not found"
+                self.logout()
+                self.isLoading = false
+            }
+        } withCancel: { [weak self] error in
+            self?.handleDatabaseError(error)
+        }
+    }
+    
+    private func updateUserData(from userData: [String: Any]) {
+        DispatchQueue.main.async {
+            self.fullName = userData["fullName"] as? String
+            self.phoneNumber = userData["phone"] as? String
+        }
+    }
+    
+    private func handleDatabaseError(_ error: Error) {
+        DispatchQueue.main.async {
+            self.errorMessage = "Database error: \(error.localizedDescription)"
+            self.isLoading = false
+        }
+    }
+    
+    func logout() {
+        do {
+            try auth.signOut()
+            isAuthenticated = false
+            currentUserRole = nil
+            documentStatus = .notSubmitted
+            fullName = nil
+            phoneNumber = nil
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
     
@@ -233,17 +322,6 @@ class AuthViewModel: ObservableObject {
                 
                 self.errorMessage = "Password reset link sent to your email"
             }
-        }
-    }
-    
-    func logout() {
-        do {
-            try auth.signOut()
-            isAuthenticated = false
-            currentUserRole = nil
-            documentStatus = .notSubmitted
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 } 

@@ -25,16 +25,6 @@ struct HomeView: View {
                 }
             }
             .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        authViewModel.logout()
-                    }) {
-                        Text("Logout")
-                            .foregroundColor(Color(hex: "F4A261"))
-                    }
-                }
-            }
         }
     }
 }
@@ -139,45 +129,313 @@ struct UserManagementView: View {
 }
 
 struct UserCard: View {
-    let user: UserData
+    @State var user: UserData
+    @State private var showDetailView = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Name row
-            HStack(spacing: 12) {
-                Image(systemName: "person.circle.fill")
-                    .foregroundColor(Color(hex: "F4A261"))
-                    .font(.system(size: 36))
+        Button(action: {
+            if user.role == .restaurant {
+                showDetailView = true
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Name row
+                HStack(spacing: 12) {
+                    Image(systemName: "person.circle.fill")
+                        .foregroundColor(Color(hex: "F4A261"))
+                        .font(.system(size: 36))
+                    
+                    Text(user.fullName)
+                        .font(.headline)
+                }
                 
-                Text("Name: \(user.fullName)")
-                    .font(.headline)
+                // Email row
+                HStack {
+                    Image(systemName: "envelope.fill")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .frame(width: 20)
+                    Text(user.email)
+                        .font(.subheadline)
+                }
+                
+                // Phone row
+                HStack {
+                    Image(systemName: "phone.fill")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .frame(width: 20)
+                    Text(user.phone)
+                        .font(.subheadline)
+                }
             }
-            
-            // Email row
-            HStack {
-                Image(systemName: "envelope.fill")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text("Email: \(user.email)")
-                    .font(.subheadline)
-            }
-            
-            // Phone row
-            HStack {
-                Image(systemName: "phone.fill")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text("Phone: \(user.phone)")
-                    .font(.subheadline)
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showDetailView) {
+            if user.role == .restaurant {
+                RestaurantDetailView(user: $user)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+}
+
+struct RestaurantDetailView: View {
+    @Binding var user: UserData
+    @StateObject private var viewModel = UserManagementViewModel()
+    @Environment(\.dismiss) private var dismiss
+    @State private var showDocumentPreview = false
+    @State private var selectedImageURL: String?
+    @State private var showError = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Basic Information Section
+                    GroupBox(label: Text("Basic Information").bold()) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            DetailRow(icon: "person.fill", title: "Name", value: user.fullName)
+                            DetailRow(icon: "envelope.fill", title: "Email", value: user.email)
+                            DetailRow(icon: "phone.fill", title: "Phone", value: user.phone)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Document Status Section
+                    GroupBox(label: Text("Document Status").bold()) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Status:")
+                                Text(user.documentStatus?.capitalized ?? "Not Submitted")
+                                    .foregroundColor(statusColor(for: user.documentStatus))
+                                    .fontWeight(.medium)
+                            }
+                            
+                            if let hours = user.businessHours {
+                                Divider()
+                                Text("Business Hours")
+                                    .fontWeight(.medium)
+                                Text("Opening: \(hours.opening)")
+                                Text("Closing: \(hours.closing)")
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Documents Section
+                    GroupBox(label: Text("Documents").bold()) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if let restaurantProofURL = user.restaurantProofURL {
+                                Button(action: {
+                                    selectedImageURL = restaurantProofURL
+                                    showDocumentPreview = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "doc.fill")
+                                        Text("View Restaurant License")
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                            }
+                            
+                            if let ownerIDURL = user.ownerIDURL {
+                                Button(action: {
+                                    selectedImageURL = ownerIDURL
+                                    showDocumentPreview = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "doc.fill")
+                                        Text("View Owner's ID")
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Approval/Rejection Section
+                    if user.documentStatus?.lowercased() == "pending_review" {
+                        GroupBox(label: Text("Actions").bold()) {
+                            HStack(spacing: 16) {
+                                Button(action: {
+                                    updateStatus("approved")
+                                }) {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("Approve")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                }
+                                
+                                Button(action: {
+                                    updateStatus("rejected")
+                                }) {
+                                    HStack {
+                                        Image(systemName: "xmark.circle.fill")
+                                        Text("Reject")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Restaurant Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showDocumentPreview) {
+            if let url = selectedImageURL {
+                DocumentPreviewView(imageURL: url)
+            }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func statusColor(for status: String?) -> Color {
+        guard let status = status?.lowercased() else { return .gray }
+        switch status {
+        case "approved":
+            return .green
+        case "rejected":
+            return .red
+        case "pending_review":
+            return .orange
+        default:
+            return .gray
+        }
+    }
+    
+    private func updateStatus(_ status: String) {
+        viewModel.updateDocumentStatus(userId: user.id, status: status) { error in
+            if let error = error {
+                errorMessage = "Failed to update status: \(error.localizedDescription)"
+                showError = true
+            } else {
+                // Update the user data locally
+                user.documentStatus = status
+            }
+        }
+    }
+}
+
+struct DetailRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.gray)
+                .frame(width: 20)
+            Text(title + ":")
+                .foregroundColor(.gray)
+            Text(value)
+        }
+    }
+}
+
+struct DocumentPreviewView: View {
+    let imageURL: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    @State private var error: Error?
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                if isLoading {
+                    ProgressView()
+                } else if let error = error {
+                    VStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.red)
+                        Text("Error loading image: \(error.localizedDescription)")
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else if let image = image {
+                    ScrollView {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .padding()
+                    }
+                }
+            }
+            .navigationTitle("Document Preview")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        guard let url = URL(string: imageURL) else {
+            error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            isLoading = false
+            return
+        }
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let error = error {
+                    self.error = error
+                    return
+                }
+                
+                guard let data = data, let loadedImage = UIImage(data: data) else {
+                    self.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to load image"])
+                    return
+                }
+                
+                self.image = loadedImage
+            }
+        }.resume()
     }
 }
 
@@ -187,6 +445,16 @@ struct UserData: Identifiable {
     let email: String
     let phone: String
     let role: UserRole
+    // Document related fields
+    var documentStatus: String?
+    var restaurantProofURL: String?
+    var ownerIDURL: String?
+    var businessHours: BusinessHours?
+}
+
+struct BusinessHours: Codable {
+    let opening: String
+    let closing: String
 }
 
 class UserManagementViewModel: ObservableObject {
@@ -216,12 +484,43 @@ class UserManagementViewModel: ObservableObject {
                 let email = userData["email"] as? String ?? "No Email"
                 let phone = userData["phone"] as? String ?? "No Phone"
                 
+                var documentStatus: String?
+                var restaurantProofURL: String?
+                var ownerIDURL: String?
+                var businessHours: BusinessHours?
+                
+                // Fetch document data for restaurants
+                if role == .restaurant {
+                    if let documents = userData["documents"] as? [String: Any] {
+                        documentStatus = documents["status"] as? String
+                        if let files = documents["files"] as? [String: Any] {
+                            if let restaurantProof = files["restaurant_proof"] as? [String: Any] {
+                                restaurantProofURL = restaurantProof["url"] as? String
+                            }
+                            if let ownerID = files["owner_id"] as? [String: Any] {
+                                ownerIDURL = ownerID["url"] as? String
+                            }
+                        }
+                    }
+                    
+                    if let hours = userData["hours"] as? [String: String] {
+                        businessHours = BusinessHours(
+                            opening: hours["opening"] ?? "N/A",
+                            closing: hours["closing"] ?? "N/A"
+                        )
+                    }
+                }
+                
                 let user = UserData(
                     id: snapshot.key,
                     fullName: fullName,
                     email: email,
                     phone: phone,
-                    role: role
+                    role: role,
+                    documentStatus: documentStatus,
+                    restaurantProofURL: restaurantProofURL,
+                    ownerIDURL: ownerIDURL,
+                    businessHours: businessHours
                 )
                 fetchedUsers.append(user)
             }
@@ -230,6 +529,26 @@ class UserManagementViewModel: ObservableObject {
                 self.users = fetchedUsers
                 self.isLoading = false
                 print("Fetched \(fetchedUsers.count) users for role: \(role.rawValue)")
+            }
+        }
+    }
+    
+    func updateDocumentStatus(userId: String, status: String, completion: @escaping (Error?) -> Void) {
+        let updates = [
+            "documents/status": status
+        ]
+        
+        db.child("restaurants").child(userId).updateChildValues(updates) { error, _ in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(error)
+                } else {
+                    // Update the local users array
+                    if let index = self.users.firstIndex(where: { $0.id == userId }) {
+                        self.users[index].documentStatus = status
+                    }
+                    completion(nil)
+                }
             }
         }
     }
@@ -248,71 +567,6 @@ struct CustomerHomeView: View {
             Text("Welcome Customer")
                 .font(.title)
                 .padding()
-        }
-    }
-}
-
-struct RestaurantHomeView: View {
-    @ObservedObject var authViewModel: AuthViewModel
-    
-    var body: some View {
-        Group {
-            switch authViewModel.documentStatus {
-            case .notSubmitted:
-                DocumentUploadView(authViewModel: authViewModel)
-            case .pending:
-                VStack(spacing: 20) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(Color(hex: "F4A261"))
-                    
-                    Text("Documents Under Review")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Your documents are being reviewed by our team. This process usually takes 1-2 business days.")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal)
-                }
-                .padding()
-            case .rejected:
-                VStack(spacing: 20) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.red)
-                    
-                    Text("Documents Rejected")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Your documents were rejected. Please submit new documents.")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal)
-                    
-                    Button(action: {
-                        authViewModel.documentStatus = .notSubmitted
-                    }) {
-                        Text("Submit New Documents")
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(hex: "F4A261"))
-                            .cornerRadius(12)
-                    }
-                }
-                .padding()
-            case .approved:
-                VStack {
-                    Text("Welcome Restaurant")
-                        .font(.title)
-                        .padding()
-                    
-                    // Add restaurant dashboard content here
-                }
-            }
         }
     }
 }
