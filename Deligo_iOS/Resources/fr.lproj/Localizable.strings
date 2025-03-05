@@ -1,0 +1,68 @@
+// Common
+"account" = "Compte";
+"save" = "Enregistrer";
+"done" = "Terminé";
+"cancel" = "Annuler";
+
+// Account View
+"store_settings" = "Paramètres du magasin";
+"store_hours" = "Heures d'ouverture";
+"store_info" = "Informations sur le magasin";
+"appearance" = "Apparence";
+"dark_mode" = "Mode sombre";
+"language" = "Langue";
+"sign_out" = "Déconnexion";
+
+// Store Hours
+"monday" = "Lundi";
+"tuesday" = "Mardi";
+"wednesday" = "Mercredi";
+"thursday" = "Jeudi";
+"friday" = "Vendredi";
+"saturday" = "Samedi";
+"sunday" = "Dimanche";
+"open" = "Ouvrir";
+"close" = "Fermer";
+
+// Store Info
+"contact_information" = "Coordonnées";
+"address" = "Adresse";
+"phone" = "Téléphone";
+"email" = "Email";
+"about" = "À propos";
+
+// Menu
+"menu" = "Menu";
+"add_item" = "Ajouter un article";
+"edit_item" = "Modifier l'article";
+"delete_item" = "Supprimer l'article";
+"price" = "Prix";
+"description" = "Description";
+"category" = "Catégorie";
+"availability" = "Disponibilité";
+
+"store_location" = "Emplacement du magasin";
+"search_location" = "Rechercher un emplacement...";
+"store_settings" = "Paramètres du magasin";
+"store_hours" = "Heures d'ouverture";
+"store_info" = "Informations du magasin";
+"appearance" = "Apparence";
+"dark_mode" = "Mode sombre";
+"language" = "Langue";
+"sign_out" = "Déconnexion";
+"account" = "Compte";
+"contact_information" = "Coordonnées";
+"about" = "À propos";
+"address" = "Adresse";
+"phone" = "Téléphone";
+"email" = "Email";
+"open" = "Ouvert";
+"close" = "Fermé";
+"done" = "Terminé";
+"monday" = "Lundi";
+"tuesday" = "Mardi";
+"wednesday" = "Mercredi";
+"thursday" = "Jeudi";
+"friday" = "Vendredi";
+"saturday" = "Samedi";
+"sunday" = "Dimanche"; 

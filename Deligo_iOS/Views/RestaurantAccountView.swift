@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseDatabase
+import GooglePlaces
+import CoreLocation
 
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -133,18 +135,6 @@ struct RestaurantAccountView: View {
                         HStack {
                             Image(systemName: "info.circle")
                             Text(appSettings.localizedString("store_info"))
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    
-                    NavigationLink {
-                        StoreLocationView(authViewModel: authViewModel)
-                    } label: {
-                        HStack {
-                            Image(systemName: "mappin.circle")
-                            Text(appSettings.localizedString("store_location"))
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .foregroundColor(.gray)
@@ -312,12 +302,59 @@ struct StoreInfoView: View {
     @Binding var storeInfo: StoreInfo
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var authViewModel: AuthViewModel
+    @State private var searchResults: [GMSAutocompletePrediction] = []
+    @State private var showingAddressSuggestions = false
+    private let placesClient = GMSPlacesClient.shared()
     
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text(appSettings.localizedString("contact_information"))) {
-                    TextField(appSettings.localizedString("address"), text: $storeInfo.address)
+                    // Address field with suggestions
+                    VStack(alignment: .leading, spacing: 0) {
+                        TextField(appSettings.localizedString("address"), text: $storeInfo.address)
+                            .onChange(of: storeInfo.address) { newValue in
+                                if !newValue.isEmpty {
+                                    searchAddress(newValue)
+                                    showingAddressSuggestions = true
+                                } else {
+                                    showingAddressSuggestions = false
+                                    searchResults = []
+                                }
+                            }
+                        
+                        if showingAddressSuggestions && !searchResults.isEmpty {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    ForEach(searchResults, id: \.placeID) { result in
+                                        Button(action: {
+                                            selectLocation(result)
+                                            showingAddressSuggestions = false
+                                        }) {
+                                            HStack {
+                                                Text(result.attributedPrimaryText.string)
+                                                    .foregroundColor(.primary)
+                                                    .font(.system(size: 17))
+                                                Spacer()
+                                                Image(systemName: "chevron.right")
+                                                    .foregroundColor(Color(.systemGray3))
+                                                    .font(.system(size: 14))
+                                            }
+                                            .padding(.vertical, 12)
+                                            .padding(.horizontal)
+                                        }
+                                        
+                                        if result.placeID != searchResults.last?.placeID {
+                                            Divider()
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxHeight: 250)
+                            .background(Color(.systemBackground))
+                        }
+                    }
+                    
                     TextField(appSettings.localizedString("phone"), text: $storeInfo.phone)
                         .keyboardType(.phonePad)
                     TextField(appSettings.localizedString("email"), text: $storeInfo.email)
@@ -337,6 +374,59 @@ struct StoreInfoView: View {
                         saveInfo()
                         dismiss()
                     }
+                }
+            }
+        }
+    }
+    
+    private func searchAddress(_ query: String) {
+        let filter = GMSAutocompleteFilter()
+        filter.countries = ["CA"] // Restrict to Canada
+        filter.type = .address // Only show address results
+        
+        placesClient.findAutocompletePredictions(
+            fromQuery: query,
+            filter: filter,
+            sessionToken: nil
+        ) { (results, error) in
+            if let error = error {
+                print("Error fetching autocomplete results: \(error.localizedDescription)")
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.searchResults = results ?? []
+            }
+        }
+    }
+    
+    private func selectLocation(_ prediction: GMSAutocompletePrediction) {
+        placesClient.fetchPlace(
+            fromPlaceID: prediction.placeID,
+            placeFields: [.name, .formattedAddress, .coordinate],
+            sessionToken: nil
+        ) { (place, error) in
+            if let error = error {
+                print("Error fetching place details: \(error.localizedDescription)")
+                return
+            }
+            
+            DispatchQueue.main.async {
+                if let place = place {
+                    storeInfo.address = place.formattedAddress ?? prediction.attributedPrimaryText.string
+                    
+                    // Save location data
+                    guard let userId = authViewModel.currentUserId else { return }
+                    let db = Database.database().reference()
+                    
+                    let locationData: [String: Any] = [
+                        "name": place.name ?? "",
+                        "address": place.formattedAddress ?? "",
+                        "latitude": place.coordinate.latitude,
+                        "longitude": place.coordinate.longitude
+                    ]
+                    
+                    db.child("restaurants").child(userId).child("location").setValue(locationData)
                 }
             }
         }
