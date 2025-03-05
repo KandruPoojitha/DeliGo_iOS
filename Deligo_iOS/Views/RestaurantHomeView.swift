@@ -106,66 +106,74 @@ struct RestaurantHomeView: View {
 struct OrdersTabView: View {
     @Binding var selectedOrderTab: Int
     @Binding var isRestaurantOpen: Bool
+    @ObservedObject private var appSettings = AppSettings.shared
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with Logo and Toggle
-            HStack {
-                Image("deligo_logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // Header with Logo and Toggle
+                HStack {
+                    Image("deligo_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                    Spacer()
+                    Text(isRestaurantOpen ? "Open" : "Closed")
+                        .foregroundColor(isRestaurantOpen ? .green : .red)
+                        .font(.headline)
+                        .padding(.trailing, 8)
+                    
+                    // Restaurant Open/Close Toggle
+                    Toggle("", isOn: $isRestaurantOpen)
+                        .toggleStyle(SwitchToggleStyle(tint: isRestaurantOpen ? .green : .red))
+                        .frame(width: 51) // Standard iOS toggle width
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+                .padding(.top, geometry.safeAreaInsets.top)
+                .background(appSettings.isDarkMode ? Color.black : Color.white)
+                
+                // Order Status Tabs
+                HStack(spacing: 0) {
+                    OrderTabButton(title: "New Orders", isSelected: selectedOrderTab == 0) {
+                        selectedOrderTab = 0
+                    }
+                    
+                    OrderTabButton(title: "In Progress", isSelected: selectedOrderTab == 1) {
+                        selectedOrderTab = 1
+                    }
+                    
+                    OrderTabButton(title: "Delivered", isSelected: selectedOrderTab == 2) {
+                        selectedOrderTab = 2
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .background(appSettings.isDarkMode ? Color.black : Color.white)
+                
+                // Content based on selected tab
+                TabView(selection: $selectedOrderTab) {
+                    NewOrdersView()
+                        .tag(0)
+                    
+                    InProgressOrdersView()
+                        .tag(1)
+                    
+                    DeliveredOrdersView()
+                        .tag(2)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                
                 Spacer()
-                Text(isRestaurantOpen ? "Open" : "Closed")
-                    .foregroundColor(isRestaurantOpen ? .green : .red)
-                    .font(.headline)
-                
-                
-                
-                // Restaurant Open/Close Toggle
-                Toggle("", isOn: $isRestaurantOpen)
-                    .toggleStyle(SwitchToggleStyle(tint: isRestaurantOpen ? .green : .red))
-                    .frame(width: 51) // Standard iOS toggle width
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color.white)
-            
-            // Order Status Tabs
-            HStack(spacing: 0) {
-                OrderTabButton(title: "New Orders", isSelected: selectedOrderTab == 0) {
-                    selectedOrderTab = 0
-                }
-                
-                OrderTabButton(title: "In Progress", isSelected: selectedOrderTab == 1) {
-                    selectedOrderTab = 1
-                }
-                
-                OrderTabButton(title: "Delivered", isSelected: selectedOrderTab == 2) {
-                    selectedOrderTab = 2
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            
-            // Content based on selected tab
-            TabView(selection: $selectedOrderTab) {
-                NewOrdersView()
-                    .tag(0)
-                
-                InProgressOrdersView()
-                    .tag(1)
-                
-                DeliveredOrdersView()
-                    .tag(2)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            .background(appSettings.isDarkMode ? Color.black : Color(.systemGroupedBackground))
+            .edgesIgnoringSafeArea(.all)
         }
-        .background(Color(.systemGroupedBackground))
     }
 }
 
 struct OrderTabButton: View {
+    @ObservedObject private var appSettings = AppSettings.shared
     let title: String
     let isSelected: Bool
     let action: () -> Void
@@ -174,7 +182,7 @@ struct OrderTabButton: View {
         Button(action: action) {
             Text(title)
                 .fontWeight(.medium)
-                .foregroundColor(isSelected ? .white : .black)
+                .foregroundColor(isSelected ? .white : (appSettings.isDarkMode ? .white : .black))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(isSelected ? Color(hex: "F4A261") : Color.clear)

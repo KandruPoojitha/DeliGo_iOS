@@ -56,7 +56,7 @@ struct AdminView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(hex: "F4A261"))
+                .background(Color("F4A261"))
                 .cornerRadius(25)
             }
             .padding()
@@ -94,9 +94,9 @@ struct AdminMenuCard: View {
         HStack(spacing: 15) {
             Image(systemName: icon)
                 .font(.system(size: 30))
-                .foregroundColor(Color(hex: "F4A261"))
+                .foregroundColor(Color("F4A261"))
                 .frame(width: 60, height: 60)
-                .background(Color(hex: "F4A261").opacity(0.2))
+                .background(Color("F4A261").opacity(0.2))
                 .clipShape(Circle())
             
             VStack(alignment: .leading, spacing: 4) {

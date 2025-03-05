@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct LoginView: View {
     @StateObject private var authViewModel = AuthViewModel()
@@ -6,6 +7,10 @@ struct LoginView: View {
     @State private var password: String = ""
     @State private var showingSignUp = false
     @State private var showingForgotPassword = false
+    @State private var forgotPasswordEmail = ""
+    @State private var showingResetAlert = false
+    @State private var resetMessage = ""
+    @State private var isResetError = false
     
     private func handleLogin() {
         // Validation
@@ -16,6 +21,27 @@ struct LoginView: View {
         
         // Attempt login
         authViewModel.login(email: email, password: password)
+    }
+    
+    private func handleForgotPassword() {
+        guard !forgotPasswordEmail.isEmpty else {
+            resetMessage = "Please enter your email address"
+            isResetError = true
+            showingResetAlert = true
+            return
+        }
+        
+        Auth.auth().sendPasswordReset(withEmail: forgotPasswordEmail) { error in
+            if let error = error {
+                resetMessage = error.localizedDescription
+                isResetError = true
+            } else {
+                resetMessage = "Password reset email sent. Please check your inbox."
+                isResetError = false
+                forgotPasswordEmail = ""
+            }
+            showingResetAlert = true
+        }
     }
     
     var body: some View {
@@ -77,6 +103,7 @@ struct LoginView: View {
                     
                     // Forgot Password
                     Button(action: {
+                        forgotPasswordEmail = email // Pre-fill with login email
                         showingForgotPassword = true
                     }) {
                         Text("Forgot Password?")
@@ -96,8 +123,19 @@ struct LoginView: View {
                 .sheet(isPresented: $showingSignUp) {
                     SignUpView()
                 }
-                .sheet(isPresented: $showingForgotPassword) {
-                    ForgotPasswordView()
+                .alert("Forgot Password", isPresented: $showingForgotPassword) {
+                    TextField("Enter your email", text: $forgotPasswordEmail)
+                    Button("Cancel", role: .cancel) { }
+                    Button("Reset Password") {
+                        handleForgotPassword()
+                    }
+                } message: {
+                    Text("Enter your email address and we'll send you instructions to reset your password.")
+                }
+                .alert(isResetError ? "Error" : "Success", isPresented: $showingResetAlert) {
+                    Button("OK") { }
+                } message: {
+                    Text(resetMessage)
                 }
             }
         }

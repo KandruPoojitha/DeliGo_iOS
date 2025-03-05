@@ -1,104 +1,100 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ForgotPasswordView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authViewModel = AuthViewModel()
     @State private var email: String = ""
+    @State private var isLoading = false
+    @State private var message: String?
+    @State private var isError = false
     
-    private func isEmailValid() -> Bool {
+    private func resetPassword() {
         guard !email.isEmpty else {
-            authViewModel.errorMessage = "Please enter your email address"
-            return false
+            message = "Please enter your email address"
+            isError = true
+            return
         }
         
-        guard email.contains("@") && email.contains(".") else {
-            authViewModel.errorMessage = "Please enter a valid email address"
-            return false
+        isLoading = true
+        Auth.auth().sendPasswordReset(withEmail: email) { error in
+            isLoading = false
+            if let error = error {
+                message = error.localizedDescription
+                isError = true
+            } else {
+                message = "Password reset email sent. Please check your inbox."
+                isError = false
+            }
         }
-        
-        return true
     }
     
     var body: some View {
-        VStack(spacing: 24) {
-            // Logo
-            Image("deligo_logo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
-                .padding(.top, 40)
-            
-            Text("Reset Password")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text("Enter your email address and we'll send you a link to reset your password")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.gray)
-                .padding(.horizontal)
-            
-            // Email Input
-            HStack {
-                Image(systemName: "envelope")
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Reset Password")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top, 30)
+                
+                Text("Enter your email address and we'll send you instructions to reset your password.")
+                    .font(.subheadline)
                     .foregroundColor(.gray)
-                TextField("Email", text: $email)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .autocapitalization(.none)
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
-            .padding(.top, 20)
-            
-            // Send Reset Link Button
-            Button(action: {
-                if isEmailValid() {
-                    authViewModel.forgotPassword(email: email)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                HStack {
+                    Image(systemName: "envelope")
+                        .foregroundColor(.gray)
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                        .textContentType(.emailAddress)
+                        .disableAutocorrection(true)
                 }
-            }) {
-                if authViewModel.isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                } else {
-                    Text("Send Reset Link")
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button(action: resetPassword) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Send Reset Link")
+                            .fontWeight(.medium)
+                    }
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color("F4A261"))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                .disabled(isLoading)
+                
+                if let message = message {
+                    Text(message)
+                        .foregroundColor(isError ? .red : .green)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(hex: "F4A261"))
-            .cornerRadius(8)
-            .disabled(authViewModel.isLoading)
-            
-            // Back to Login Button
-            Button(action: {
-                dismiss()
-            }) {
-                Text("Back to Login")
-                    .foregroundColor(Color(hex: "1E88E5"))
-            }
-            .padding(.top, 10)
-            
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .navigationBarTitleDisplayMode(.inline)
-        .alert("Message", isPresented: .constant(authViewModel.errorMessage != nil)) {
-            Button("OK") {
-                if authViewModel.errorMessage == "Password reset link sent to your email" {
-                    dismiss()
-                }
-                authViewModel.errorMessage = nil
-            }
-        } message: {
-            Text(authViewModel.errorMessage ?? "")
         }
     }
 }
 
 #Preview {
-    NavigationStack {
-        ForgotPasswordView()
-    }
+    ForgotPasswordView()
 } 
