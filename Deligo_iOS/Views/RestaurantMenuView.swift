@@ -6,10 +6,42 @@ import FirebaseDatabase
 struct RestaurantMenuView: View {
     @State private var menuItems: [MenuItem] = []
     @State private var showAddItemSheet = false
+    @State private var searchText = ""
     @ObservedObject var authViewModel: AuthViewModel
+    
+    var filteredMenuItems: [MenuItem] {
+        if searchText.isEmpty {
+            return menuItems
+        }
+        return menuItems.filter { item in
+            item.name.localizedCaseInsensitiveContains(searchText) ||
+            item.description.localizedCaseInsensitiveContains(searchText) ||
+            item.category.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
+            // Search Bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search menu items...", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
+            .padding()
+            
             if menuItems.isEmpty {
                 VStack(spacing: 20) {
                     Spacer()
@@ -41,13 +73,29 @@ struct RestaurantMenuView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(menuItems) { item in
-                        MenuItemRow(item: item, authViewModel: authViewModel, menuItems: $menuItems)
+                if filteredMenuItems.isEmpty {
+                    VStack(spacing: 20) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        Text("No Results")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                        Text("Try searching for something else")
+                            .foregroundColor(.gray)
+                        Spacer()
                     }
-                    .onDelete(perform: deleteItems)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(filteredMenuItems) { item in
+                            MenuItemRow(item: item, authViewModel: authViewModel, menuItems: $menuItems)
+                        }
+                        .onDelete(perform: deleteItems)
+                    }
+                    .listStyle(InsetGroupedListStyle())
                 }
-                .listStyle(InsetGroupedListStyle())
                 
                 // Add Item Button when items exist
                 Button(action: {
