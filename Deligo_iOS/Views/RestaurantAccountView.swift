@@ -75,12 +75,14 @@ struct DayHours: Codable {
 }
 
 struct StoreInfo: Codable {
+    var name: String
     var address: String
     var phone: String
     var email: String
     var description: String
     
     init() {
+        self.name = ""
         self.address = ""
         self.phone = ""
         self.email = ""
@@ -106,7 +108,7 @@ struct RestaurantAccountView: View {
                             .foregroundColor(Color(hex: "F4A261"))
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(authViewModel.email ?? "Restaurant Owner")
+                            Text(authViewModel.fullName ?? "Restaurant Owner")
                                 .font(.headline)
                             Text(authViewModel.email ?? "")
                                 .font(.subheadline)
@@ -211,13 +213,26 @@ struct RestaurantAccountView: View {
         // Load store info
         db.child("restaurants").child(userId).child("store_info").observeSingleEvent(of: .value) { snapshot in
             if let value = snapshot.value as? [String: Any] {
-                do {
-                    let data = try JSONSerialization.data(withJSONObject: value)
-                    let info = try JSONDecoder().decode(StoreInfo.self, from: data)
-                    self.storeInfo = info
-                } catch {
-                    print("Error decoding store info: \(error)")
-                }
+                // Directly map the values to ensure we get all fields
+                var info = StoreInfo()
+                info.name = value["name"] as? String ?? authViewModel.fullName ?? ""
+                info.phone = value["phone"] as? String ?? ""
+                info.email = value["email"] as? String ?? authViewModel.email ?? ""
+                info.description = value["description"] as? String ?? ""
+                self.storeInfo = info
+            } else {
+                // If no store info exists yet, initialize with user's data
+                self.storeInfo = StoreInfo()
+                self.storeInfo.name = authViewModel.fullName ?? ""
+                self.storeInfo.email = authViewModel.email ?? ""
+            }
+        }
+        
+        // Load location data for address
+        db.child("restaurants").child(userId).child("location").observeSingleEvent(of: .value) { snapshot in
+            if let value = snapshot.value as? [String: Any],
+               let address = value["address"] as? String {
+                self.storeInfo.address = address
             }
         }
     }
@@ -310,6 +325,14 @@ struct StoreInfoView: View {
         NavigationView {
             Form {
                 Section(header: Text(appSettings.localizedString("contact_information"))) {
+                    // Store Name field
+                    TextField(appSettings.localizedString("store_name"), text: $storeInfo.name)
+                        .onAppear {
+                            if storeInfo.name.isEmpty {
+                                storeInfo.name = authViewModel.fullName ?? ""
+                            }
+                        }
+                    
                     // Address field with suggestions
                     VStack(alignment: .leading, spacing: 0) {
                         TextField(appSettings.localizedString("address"), text: $storeInfo.address)
@@ -359,6 +382,11 @@ struct StoreInfoView: View {
                         .keyboardType(.phonePad)
                     TextField(appSettings.localizedString("email"), text: $storeInfo.email)
                         .keyboardType(.emailAddress)
+                        .onAppear {
+                            if storeInfo.email.isEmpty {
+                                storeInfo.email = authViewModel.email ?? ""
+                            }
+                        }
                 }
                 
                 Section(header: Text(appSettings.localizedString("about"))) {
@@ -366,7 +394,7 @@ struct StoreInfoView: View {
                         .frame(height: 100)
                 }
             }
-            .navigationTitle(appSettings.localizedString("store_info"))
+            .navigationTitle(storeInfo.name.isEmpty ? appSettings.localizedString("store_info") : storeInfo.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
