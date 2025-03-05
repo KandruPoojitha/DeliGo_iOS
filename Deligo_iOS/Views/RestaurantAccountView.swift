@@ -1,218 +1,358 @@
 import SwiftUI
 import FirebaseDatabase
 
+class AppSettings: ObservableObject {
+    static let shared = AppSettings()
+    
+    @Published var isDarkMode: Bool {
+        didSet {
+            UserDefaults.standard.set(isDarkMode, forKey: "isDarkMode")
+        }
+    }
+    
+    @Published var isFrench: Bool {
+        didSet {
+            UserDefaults.standard.set(isFrench, forKey: "isFrench")
+            // Update the app's language
+            if isFrench {
+                UserDefaults.standard.set(["fr"], forKey: "AppleLanguages")
+            } else {
+                UserDefaults.standard.set(["en"], forKey: "AppleLanguages")
+            }
+            UserDefaults.standard.synchronize()
+            // Post notification for app-wide language update
+            NotificationCenter.default.post(name: Notification.Name("LanguageChanged"), object: nil)
+        }
+    }
+    
+    private init() {
+        self.isDarkMode = UserDefaults.standard.bool(forKey: "isDarkMode")
+        self.isFrench = UserDefaults.standard.bool(forKey: "isFrench")
+    }
+    
+    func localizedString(_ key: String) -> String {
+        let path = isFrench ? "fr" : "en"
+        if let bundlePath = Bundle.main.path(forResource: path, ofType: "lproj"),
+           let bundle = Bundle(path: bundlePath) {
+            return NSLocalizedString(key, bundle: bundle, comment: "")
+        }
+        return key
+    }
+}
+
+struct StoreHours: Codable {
+    var monday: DayHours
+    var tuesday: DayHours
+    var wednesday: DayHours
+    var thursday: DayHours
+    var friday: DayHours
+    var saturday: DayHours
+    var sunday: DayHours
+    
+    init() {
+        self.monday = DayHours()
+        self.tuesday = DayHours()
+        self.wednesday = DayHours()
+        self.thursday = DayHours()
+        self.friday = DayHours()
+        self.saturday = DayHours()
+        self.sunday = DayHours()
+    }
+}
+
+struct DayHours: Codable {
+    var isOpen: Bool
+    var openTime: String
+    var closeTime: String
+    
+    init() {
+        self.isOpen = true
+        self.openTime = "09:00"
+        self.closeTime = "22:00"
+    }
+}
+
+struct StoreInfo: Codable {
+    var address: String
+    var phone: String
+    var email: String
+    var description: String
+    
+    init() {
+        self.address = ""
+        self.phone = ""
+        self.email = ""
+        self.description = ""
+    }
+}
+
 struct RestaurantAccountView: View {
     @ObservedObject var authViewModel: AuthViewModel
-    @State private var showEditProfile = false
-    @State private var showBusinessHours = false
-    @State private var showNotifications = false
+    @StateObject private var appSettings = AppSettings.shared
+    @State private var storeHours = StoreHours()
+    @State private var storeInfo = StoreInfo()
+    @State private var showingHoursSheet = false
+    @State private var showingInfoSheet = false
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                // Profile Section
-                VStack(spacing: 16) {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(Color(hex: "F4A261"))
-                    
-                    // User Info
-                    Text(authViewModel.fullName ?? "Restaurant Owner")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text(authViewModel.email ?? "")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                .padding(.top, 20)
-                
-                // Settings List
-                VStack(spacing: 1) {
-                    // Profile Settings Button
-                    Button(action: {
-                        showEditProfile = true
-                    }) {
-                        SettingsRow(icon: "person.fill", title: "Profile Settings")
-                    }
-                    
-                    // Business Hours Button
-                    Button(action: {
-                        showBusinessHours = true
-                    }) {
-                        SettingsRow(icon: "clock.fill", title: "Business Hours")
-                    }
-              
-                    // Support Button
-                    Button(action: {
-                        // Handle support
-                    }) {
-                        SettingsRow(icon: "questionmark.circle.fill", title: "Support")
-                    }
-                    
-                    // Terms & Privacy Button
-                    Button(action: {
-                        // Handle terms
-                    }) {
-                        SettingsRow(icon: "doc.text.fill", title: "Terms & Privacy")
-                    }
-                }
-                .cornerRadius(12)
-                .padding(.horizontal)
-                
-                Spacer()
-                
-                // Version Info
-                Text("Version 1.0.0")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                
-                // Logout Button
-                Button(action: {
-                    authViewModel.logout()
-                }) {
+            Form {
+                Section {
                     HStack {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                        Text("Logout")
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(Color(hex: "F4A261"))
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(authViewModel.email ?? "Restaurant Owner")
+                                .font(.headline)
+                            Text(authViewModel.email ?? "")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(hex: "F4A261"))
-                    .cornerRadius(12)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 30)
-            }
-            .navigationTitle("Account")
-            .navigationBarTitleDisplayMode(.inline)
-            .background(Color(.systemGroupedBackground))
-        }
-        .sheet(isPresented: $showEditProfile) {
-            EditProfileView(authViewModel: authViewModel)
-        }
-        .sheet(isPresented: $showBusinessHours) {
-            BusinessHoursView()
-        }
-        .sheet(isPresented: $showNotifications) {
-            NotificationSettingsView()
-        }
-    }
-}
-
-struct SettingsRow: View {
-    let icon: String
-    let title: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .frame(width: 24)
-            Text(title)
-            Spacer()
-            Image(systemName: "chevron.right")
-        }
-        .foregroundColor(.primary)
-        .padding()
-        .background(Color.white)
-    }
-}
-
-struct EditProfileView: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject var authViewModel: AuthViewModel
-    @State private var fullName = ""
-    @State private var phone = ""
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Personal Information")) {
-                    TextField("Full Name", text: $fullName)
-                    TextField("Phone", text: $phone)
-                        .keyboardType(.phonePad)
-                }
-            }
-            .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
+                
+                Section(header: Text(appSettings.localizedString("store_settings"))) {
+                    Button(action: {
+                        showingHoursSheet = true
+                    }) {
+                        HStack {
+                            Image(systemName: "clock")
+                            Text(appSettings.localizedString("store_hours"))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
                     }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        // TODO: Save profile changes
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct BusinessHoursView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var openingTime = Date()
-    @State private var closingTime = Date()
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Business Hours")) {
-                    DatePicker("Opening Time",
-                             selection: $openingTime,
-                             displayedComponents: .hourAndMinute)
                     
-                    DatePicker("Closing Time",
-                             selection: $closingTime,
-                             displayedComponents: .hourAndMinute)
+                    Button(action: {
+                        showingInfoSheet = true
+                    }) {
+                        HStack {
+                            Image(systemName: "info.circle")
+                            Text(appSettings.localizedString("store_info"))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    
+                    NavigationLink {
+                        StoreLocationView(authViewModel: authViewModel)
+                    } label: {
+                        HStack {
+                            Image(systemName: "mappin.circle")
+                            Text(appSettings.localizedString("store_location"))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                
+                Section(header: Text(appSettings.localizedString("appearance"))) {
+                    Toggle(isOn: $appSettings.isDarkMode) {
+                        HStack {
+                            Image(systemName: appSettings.isDarkMode ? "moon.fill" : "moon")
+                            Text(appSettings.localizedString("dark_mode"))
+                        }
+                    }
+                }
+                
+                Section(header: Text(appSettings.localizedString("language"))) {
+                    Toggle(isOn: $appSettings.isFrench) {
+                        HStack {
+                            Image(systemName: "globe")
+                            Text("Français")
+                        }
+                    }
+                }
+                
+                Section {
+                    Button(action: {
+                        authViewModel.logout()
+                    }) {
+                        HStack {
+                            Spacer()
+                            Text(appSettings.localizedString("sign_out"))
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
+                    }
                 }
             }
-            .navigationTitle("Business Hours")
+            .navigationTitle(appSettings.localizedString("account"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+            .sheet(isPresented: $showingHoursSheet) {
+                StoreHoursView(storeHours: $storeHours, appSettings: appSettings, authViewModel: authViewModel)
+            }
+            .sheet(isPresented: $showingInfoSheet) {
+                StoreInfoView(storeInfo: $storeInfo, appSettings: appSettings, authViewModel: authViewModel)
+            }
+            .preferredColorScheme(appSettings.isDarkMode ? .dark : .light)
+            .onAppear {
+                loadStoreData()
+            }
+        }
+        .background(appSettings.isDarkMode ? Color.black : Color.white)
+        .navigationViewStyle(StackNavigationViewStyle())
+        .edgesIgnoringSafeArea(.all)
+    }
+    
+    private func loadStoreData() {
+        guard let userId = authViewModel.currentUserId else { return }
+        let db = Database.database().reference()
+        
+        // Load store hours
+        db.child("restaurants").child(userId).child("store_hours").observeSingleEvent(of: .value) { snapshot in
+            if let value = snapshot.value as? [String: Any] {
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: value)
+                    let hours = try JSONDecoder().decode(StoreHours.self, from: data)
+                    self.storeHours = hours
+                } catch {
+                    print("Error decoding store hours: \(error)")
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        // TODO: Save business hours
-                        dismiss()
-                    }
+            }
+        }
+        
+        // Load store info
+        db.child("restaurants").child(userId).child("store_info").observeSingleEvent(of: .value) { snapshot in
+            if let value = snapshot.value as? [String: Any] {
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: value)
+                    let info = try JSONDecoder().decode(StoreInfo.self, from: data)
+                    self.storeInfo = info
+                } catch {
+                    print("Error decoding store info: \(error)")
                 }
             }
         }
     }
 }
 
-struct NotificationSettingsView: View {
+struct StoreHoursView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var newOrders = true
-    @State private var orderUpdates = true
-    @State private var messages = true
+    @Binding var storeHours: StoreHours
+    @ObservedObject var appSettings: AppSettings
+    @ObservedObject var authViewModel: AuthViewModel
     
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Push Notifications")) {
-                    Toggle("New Orders", isOn: $newOrders)
-                    Toggle("Order Updates", isOn: $orderUpdates)
-                    Toggle("Messages", isOn: $messages)
-                }
+                DayHoursSection(day: appSettings.localizedString("monday"), hours: $storeHours.monday)
+                DayHoursSection(day: appSettings.localizedString("tuesday"), hours: $storeHours.tuesday)
+                DayHoursSection(day: appSettings.localizedString("wednesday"), hours: $storeHours.wednesday)
+                DayHoursSection(day: appSettings.localizedString("thursday"), hours: $storeHours.thursday)
+                DayHoursSection(day: appSettings.localizedString("friday"), hours: $storeHours.friday)
+                DayHoursSection(day: appSettings.localizedString("saturday"), hours: $storeHours.saturday)
+                DayHoursSection(day: appSettings.localizedString("sunday"), hours: $storeHours.sunday)
             }
-            .navigationTitle("Notifications")
+            .navigationTitle(appSettings.localizedString("store_hours"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button(appSettings.localizedString("done")) {
+                        saveHours()
                         dismiss()
                     }
                 }
             }
+        }
+    }
+    
+    private func saveHours() {
+        guard let userId = authViewModel.currentUserId else { return }
+        let db = Database.database().reference()
+        
+        do {
+            let data = try JSONEncoder().encode(storeHours)
+            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                db.child("restaurants").child(userId).child("store_hours").setValue(dict)
+            }
+        } catch {
+            print("Error saving store hours: \(error)")
+        }
+    }
+}
+
+struct DayHoursSection: View {
+    let day: String
+    @Binding var hours: DayHours
+    
+    var body: some View {
+        Section(header: Text(day)) {
+            Toggle(AppSettings.shared.localizedString("open"), isOn: $hours.isOpen)
+            
+            if hours.isOpen {
+                HStack {
+                    Text(AppSettings.shared.localizedString("open"))
+                    Spacer()
+                    TextField("09:00", text: $hours.openTime)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                }
+                
+                HStack {
+                    Text(AppSettings.shared.localizedString("close"))
+                    Spacer()
+                    TextField("22:00", text: $hours.closeTime)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                }
+            }
+        }
+    }
+}
+
+struct StoreInfoView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var storeInfo: StoreInfo
+    @ObservedObject var appSettings: AppSettings
+    @ObservedObject var authViewModel: AuthViewModel
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text(appSettings.localizedString("contact_information"))) {
+                    TextField(appSettings.localizedString("address"), text: $storeInfo.address)
+                    TextField(appSettings.localizedString("phone"), text: $storeInfo.phone)
+                        .keyboardType(.phonePad)
+                    TextField(appSettings.localizedString("email"), text: $storeInfo.email)
+                        .keyboardType(.emailAddress)
+                }
+                
+                Section(header: Text(appSettings.localizedString("about"))) {
+                    TextEditor(text: $storeInfo.description)
+                        .frame(height: 100)
+                }
+            }
+            .navigationTitle(appSettings.localizedString("store_info"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(appSettings.localizedString("save")) {
+                        saveInfo()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveInfo() {
+        guard let userId = authViewModel.currentUserId else { return }
+        let db = Database.database().reference()
+        
+        do {
+            let data = try JSONEncoder().encode(storeInfo)
+            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                db.child("restaurants").child(userId).child("store_info").setValue(dict)
+            }
+        } catch {
+            print("Error saving store info: \(error)")
         }
     }
 }
