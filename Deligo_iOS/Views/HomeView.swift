@@ -3,9 +3,60 @@ import FirebaseDatabase
 
 struct HomeView: View {
     @ObservedObject var authViewModel: AuthViewModel
+    @State private var userRole: String?
     
     var body: some View {
-        MainCustomerView(authViewModel: authViewModel)
+        Group {
+            if let role = userRole {
+                switch role {
+                case "Restaurant":
+                    RestaurantHomeView(authViewModel: authViewModel)
+                case "Admin":
+                    AdminDashboardView(authViewModel: authViewModel)
+                default:
+                    MainCustomerView(authViewModel: authViewModel)
+                }
+            } else {
+                ProgressView("Loading...")
+                    .onAppear {
+                        checkUserRole()
+                    }
+            }
+        }
+    }
+    
+    private func checkUserRole() {
+        guard let userId = authViewModel.currentUserId else { return }
+        let db = Database.database().reference()
+        
+        // First check in admins
+        db.child("admins").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
+            if let role = snapshot.value as? String {
+                print("DEBUG: Found user role in admins: \(role)")
+                self.userRole = role
+                return
+            }
+            
+            // If not found in admins, check in restaurants
+            db.child("restaurants").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
+                if let role = snapshot.value as? String {
+                    print("DEBUG: Found user role in restaurants: \(role)")
+                    self.userRole = role
+                    return
+                }
+                
+                // If not found in restaurants, check in customers
+                db.child("customers").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
+                    if let role = snapshot.value as? String {
+                        print("DEBUG: Found user role in customers: \(role)")
+                        self.userRole = role
+                    } else {
+                        print("DEBUG: User role not found, defaulting to Customer")
+                        self.userRole = "Customer"
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -560,6 +611,35 @@ struct DriverHomeView: View {
             Text("Welcome Driver")
                 .font(.title)
                 .padding()
+        }
+    }
+}
+
+struct AdminDashboardView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    
+    var body: some View {
+        NavigationView {
+            List {
+                NavigationLink(destination: UserManagementView()) {
+                    DashboardButton(icon: "person.2.fill", title: "User Management")
+                }
+                
+                NavigationLink(destination: ChatManagementView()) {
+                    DashboardButton(icon: "message.fill", title: "Chat Management")
+                }
+            }
+            .listStyle(PlainListStyle())
+            .navigationTitle("Admin Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        authViewModel.logout()
+                    }) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+            }
         }
     }
 }

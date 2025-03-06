@@ -111,7 +111,7 @@ struct MainCustomerView: View {
                         }
                     } else {
                         List(filteredRestaurants) { restaurant in
-                            NavigationLink(destination: RestaurantMenuView(restaurant: restaurant, authViewModel: authViewModel)) {
+                            NavigationLink(destination: CustomerMenuView(restaurant: restaurant, authViewModel: authViewModel)) {
                                 RestaurantRow(restaurant: restaurant)
                             }
                         }
@@ -189,21 +189,34 @@ struct MainCustomerView: View {
                     print("DEBUG: Failed to cast restaurant data to dictionary for key: \(childSnapshot.key)")
                     continue
                 }
-                
+
                 print("DEBUG: Processing restaurant with ID: \(childSnapshot.key)")
-                print("DEBUG: Document status: \(dict["documentStatus"] as? String ?? "nil")")
-                
-                guard let documentStatus = dict["documentStatus"] as? String,
+
+                // Debugging to check structure
+                if let documents = dict["documents"] as? [String: Any] {
+                    print("DEBUG: Found documents node")
+                    if let documentStatus = documents["status"] as? String {
+                        print("DEBUG: Found document status -> \(documentStatus)")
+                    } else {
+                        print("DEBUG: Missing status in documents")
+                    }
+                } else {
+                    print("DEBUG: Missing documents node")
+                }
+
+                // Corrected path to check document status
+                guard let documents = dict["documents"] as? [String: Any],
+                      let documentStatus = documents["status"] as? String,
                       documentStatus == "approved" else {
                     print("DEBUG: Restaurant not approved or missing document status")
                     continue
                 }
-                
+
                 guard let storeInfo = dict["store_info"] as? [String: Any] else {
                     print("DEBUG: Missing or invalid store_info for restaurant: \(childSnapshot.key)")
                     continue
                 }
-                
+
                 let restaurant = Restaurant(
                     id: childSnapshot.key,
                     name: storeInfo["name"] as? String ?? "",
@@ -218,11 +231,11 @@ struct MainCustomerView: View {
                     imageURL: storeInfo["imageURL"] as? String,
                     isOpen: dict["isOpen"] as? Bool ?? false
                 )
-                
+
                 loadedRestaurants.append(restaurant)
                 print("DEBUG: Added restaurant to loaded list: \(restaurant.name)")
             }
-            
+
             // Sort restaurants by name
             loadedRestaurants.sort { $0.name < $1.name }
             
