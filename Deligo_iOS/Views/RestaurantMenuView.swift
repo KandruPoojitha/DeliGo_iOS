@@ -8,6 +8,12 @@ struct RestaurantMenuView: View {
     @State private var showAddItemSheet = false
     @State private var searchText = ""
     @ObservedObject var authViewModel: AuthViewModel
+    let restaurant: Restaurant
+    
+    init(restaurant: Restaurant, authViewModel: AuthViewModel) {
+        self.restaurant = restaurant
+        self.authViewModel = authViewModel
+    }
     
     var filteredMenuItems: [MenuItem] {
         if searchText.isEmpty {
@@ -125,10 +131,9 @@ struct RestaurantMenuView: View {
     }
     
     private func loadMenuItems() {
-        guard let userId = authViewModel.currentUserId else { return }
         let db = Database.database().reference()
         
-        db.child("restaurants").child(userId).child("menu_items").observe(.value) { snapshot in
+        db.child("restaurants").child(restaurant.id).child("menu_items").observe(.value) { snapshot in
             var items: [MenuItem] = []
             
             for child in snapshot.children {
@@ -919,5 +924,21 @@ struct AddOptionView: View {
 }
 
 #Preview {
-    RestaurantMenuView(authViewModel: AuthViewModel())
+    RestaurantMenuView(
+        restaurant: Restaurant(
+            id: "1",
+            name: "Test Restaurant",
+            description: "A test restaurant description",
+            email: "test@example.com",
+            phone: "123-456-7890",
+            cuisine: "Various",
+            priceRange: "$$",
+            rating: 4.5,
+            numberOfRatings: 100,
+            address: "123 Test Street",
+            imageURL: nil,
+            isOpen: true
+        ),
+        authViewModel: AuthViewModel()
+    )
 }

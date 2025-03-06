@@ -6,6 +6,7 @@ struct RestaurantHomeView: View {
     @State private var selectedTab = 0
     @State private var selectedOrderTab = 0
     @State private var isRestaurantOpen = false
+    @State private var restaurant: Restaurant?
     
     var body: some View {
         Group {
@@ -57,35 +58,106 @@ struct RestaurantHomeView: View {
                 }
                 .padding()
             case .approved:
-                TabView(selection: $selectedTab) {
-                    // Orders Tab
-                    OrdersTabView(selectedOrderTab: $selectedOrderTab, isRestaurantOpen: $isRestaurantOpen)
-                        .tabItem {
-                            Image(systemName: "list.bullet")
-                            Text("Orders")
+                if let restaurant = restaurant {
+                    TabView(selection: $selectedTab) {
+                        // Orders Tab
+                        OrdersTabView(selectedOrderTab: $selectedOrderTab, isRestaurantOpen: $isRestaurantOpen)
+                            .tabItem {
+                                Image(systemName: "list.bullet")
+                                Text("Orders")
+                            }
+                            .tag(0)
+                        
+                        // Menu Tab
+                        RestaurantMenuView(restaurant: restaurant, authViewModel: authViewModel)
+                            .tabItem {
+                                Image(systemName: "menucard")
+                                Text("Menu")
+                            }
+                            .tag(1)
+                        
+                        // Account Tab
+                        RestaurantAccountView(authViewModel: authViewModel)
+                            .tabItem {
+                                Image(systemName: "person")
+                                Text("Account")
+                            }
+                            .tag(2)
+                    }
+                } else {
+                    ProgressView("Loading restaurant data...")
+                        .onAppear {
+                            loadRestaurantData()
                         }
-                        .tag(0)
-                    
-                    // Menu Tab
-                    RestaurantMenuView(authViewModel: authViewModel)
-                        .tabItem {
-                            Image(systemName: "menucard")
-                            Text("Menu")
-                        }
-                        .tag(1)
-                    
-                    // Account Tab
-                    RestaurantAccountView(authViewModel: authViewModel)
-                        .tabItem {
-                            Image(systemName: "person")
-                            Text("Account")
-                        }
-                        .tag(2)
                 }
             }
         }
         .onChange(of: isRestaurantOpen) { newValue in
             updateRestaurantStatus(isOpen: newValue)
+        }
+    }
+    
+    private func loadRestaurantData() {
+        guard let userId = authViewModel.currentUserId else {
+            print("DEBUG: No user ID found")
+            return
+        }
+        
+        let db = Database.database().reference()
+        
+        // First check if this user is a restaurant
+        db.child("restaurants").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
+            guard let role = snapshot.value as? String,
+                  role == "Restaurant" else {
+                print("DEBUG: User is not a restaurant. Role: \(snapshot.value as? String ?? "nil")")
+                return
+            }
+            
+            // Now load the restaurant data
+            db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot in
+                print("DEBUG: Checking restaurant data for userId: \(userId)")
+                guard let dict = snapshot.value as? [String: Any] else {
+                    print("DEBUG: Could not parse restaurant data")
+                    return
+                }
+                
+                // Check documents/status path
+                guard let documents = dict["documents"] as? [String: Any],
+                      let status = documents["status"] as? String else {
+                    print("DEBUG: Could not find status in documents/status path")
+                    return
+                }
+                
+                print("DEBUG: Found status: \(status)")
+                
+                guard status == "approved" else {
+                    print("DEBUG: Restaurant not approved. Status: \(status)")
+                    return
+                }
+                
+                guard let storeInfo = dict["store_info"] as? [String: Any] else {
+                    print("DEBUG: Missing store info")
+                    return
+                }
+                
+                print("DEBUG: Found approved restaurant with name: \(storeInfo["name"] as? String ?? "unknown")")
+                
+                self.restaurant = Restaurant(
+                    id: userId,
+                    name: storeInfo["name"] as? String ?? "",
+                    description: storeInfo["description"] as? String ?? "",
+                    email: storeInfo["email"] as? String ?? "",
+                    phone: storeInfo["phone"] as? String ?? "",
+                    cuisine: storeInfo["cuisine"] as? String ?? "Various",
+                    priceRange: storeInfo["priceRange"] as? String ?? "$",
+                    rating: dict["rating"] as? Double ?? 0.0,
+                    numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
+                    address: storeInfo["address"] as? String ?? "",
+                    imageURL: storeInfo["imageURL"] as? String,
+                    isOpen: dict["isOpen"] as? Bool ?? false
+                )
+                print("DEBUG: Successfully loaded restaurant data")
+            }
         }
     }
     

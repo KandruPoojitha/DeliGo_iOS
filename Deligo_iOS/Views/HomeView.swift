@@ -5,27 +5,7 @@ struct HomeView: View {
     @ObservedObject var authViewModel: AuthViewModel
     
     var body: some View {
-        NavigationView {
-            VStack {
-                switch authViewModel.currentUserRole {
-                case .customer:
-                    CustomerHomeView()
-                case .restaurant:
-                    RestaurantHomeView(authViewModel: authViewModel)
-                case .driver:
-                    DriverHomeView()
-                case .admin:
-                    AdminView(authViewModel: authViewModel)
-                case .none:
-                    // Show error or return to login
-                    Text("No role assigned")
-                        .onAppear {
-                            authViewModel.logout()
-                        }
-                }
-            }
-            .navigationBarBackButtonHidden(true)
-        }
+        MainCustomerView(authViewModel: authViewModel)
     }
 }
 
@@ -562,6 +542,9 @@ struct ChatManagementView: View {
 }
 
 struct CustomerHomeView: View {
+    let locationManager: CustomLocationManager
+    let authViewModel: AuthViewModel
+    
     var body: some View {
         VStack {
             Text("Welcome Customer")
