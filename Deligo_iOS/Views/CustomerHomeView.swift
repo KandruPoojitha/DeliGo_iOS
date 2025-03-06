@@ -135,7 +135,7 @@ struct MainCustomerView: View {
                 .tag(1)
             
             // Cart Tab
-            CartView(authViewModel: authViewModel)
+            CustomerCartView(authViewModel: authViewModel)
                 .tabItem {
                     Image(systemName: "cart.fill")
                     Text("Cart")

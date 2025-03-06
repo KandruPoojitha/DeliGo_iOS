@@ -40,22 +40,9 @@
 		84D6A5702D72D0AD00ACD0AD /* Deligo_iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Deligo_iOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		84D4E0E62D7996A500D1F76A /* Exceptions for "Deligo_iOS" folder in "Deligo_iOS" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Deligo-iOS-Info.plist",
-			);
-			target = 84D6A5552D72D0A900ACD0AD /* Deligo_iOS */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		84D6A5582D72D0A900ACD0AD /* Deligo_iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				84D4E0E62D7996A500D1F76A /* Exceptions for "Deligo_iOS" folder in "Deligo_iOS" target */,
-			);
 			path = Deligo_iOS;
 			sourceTree = "<group>";
 		};
