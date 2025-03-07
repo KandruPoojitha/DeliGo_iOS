@@ -4,13 +4,24 @@ import FirebaseDatabase
 struct HomeView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var userRole: String?
+    @State private var documentStatus: String?
     
     var body: some View {
         Group {
             if let role = userRole {
                 switch role {
                 case "Restaurant":
-                    RestaurantHomeView(authViewModel: authViewModel)
+                    if documentStatus == "approved" {
+                        RestaurantHomeView(authViewModel: authViewModel)
+                    } else {
+                        RestaurantDocumentsView(authViewModel: authViewModel)
+                    }
+                case "Driver":
+                    if documentStatus == "approved" {
+                        DriverHomeView(authViewModel: authViewModel)
+                    } else {
+                        DriverDocumentsView(authViewModel: authViewModel)
+                    }
                 case "Admin":
                     AdminDashboardView(authViewModel: authViewModel)
                 default:
@@ -38,22 +49,43 @@ struct HomeView: View {
             }
             
             // If not found in admins, check in restaurants
-            db.child("restaurants").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
-                if let role = snapshot.value as? String {
+            db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot in
+                if let userData = snapshot.value as? [String: Any],
+                   let role = userData["role"] as? String {
                     print("DEBUG: Found user role in restaurants: \(role)")
                     self.userRole = role
+                    
+                    // Check restaurant document status
+                    if let documents = userData["documents"] as? [String: Any],
+                       let status = documents["status"] as? String {
+                        self.documentStatus = status
+                    } else {
+                        self.documentStatus = "not_submitted"
+                    }
                     return
                 }
                 
-                // If not found in restaurants, check in customers
-                db.child("customers").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
-                    if let role = snapshot.value as? String {
-                        print("DEBUG: Found user role in customers: \(role)")
+                // If not found in restaurants, check in drivers
+                db.child("drivers").child(userId).observeSingleEvent(of: .value) { snapshot in
+                    if let userData = snapshot.value as? [String: Any],
+                       let role = userData["role"] as? String {
+                        print("DEBUG: Found user role in drivers: \(role)")
                         self.userRole = role
-                    } else {
-                        print("DEBUG: User role not found, defaulting to Customer")
-                        self.userRole = "Customer"
+                        
+                        // Check driver document status
+                        if let documents = userData["documents"] as? [String: Any],
+                           let status = documents["status"] as? String {
+                            self.documentStatus = status
+                        } else {
+                            self.documentStatus = "not_submitted"
+                        }
+                        return
                     }
+                    
+                    // If not found anywhere, default to Customer
+                    print("DEBUG: User role not found, defaulting to Customer")
+                    self.userRole = "Customer"
+                    self.documentStatus = nil
                 }
             }
         }
@@ -599,16 +631,6 @@ struct CustomerHomeView: View {
     var body: some View {
         VStack {
             Text("Welcome Customer")
-                .font(.title)
-                .padding()
-        }
-    }
-}
-
-struct DriverHomeView: View {
-    var body: some View {
-        VStack {
-            Text("Welcome Driver")
                 .font(.title)
                 .padding()
         }
