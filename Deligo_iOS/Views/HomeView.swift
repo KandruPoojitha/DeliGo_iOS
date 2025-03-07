@@ -197,7 +197,7 @@ struct UserCard: View {
     
     var body: some View {
         Button(action: {
-            if user.role == .restaurant {
+            if user.role == .restaurant || user.role == .driver {
                 showDetailView = true
             }
         }) {
@@ -208,8 +208,16 @@ struct UserCard: View {
                         .foregroundColor(Color(hex: "F4A261"))
                         .font(.system(size: 36))
                     
-                    Text(user.fullName)
-                        .font(.headline)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(user.fullName)
+                            .font(.headline)
+                        
+                        if let status = user.documentStatus {
+                            Text(status.capitalized)
+                                .font(.caption)
+                                .foregroundColor(statusColor(for: status))
+                        }
+                    }
                 }
                 
                 // Email row
@@ -242,7 +250,22 @@ struct UserCard: View {
         .sheet(isPresented: $showDetailView) {
             if user.role == .restaurant {
                 RestaurantDetailView(user: $user)
+            } else if user.role == .driver {
+                DriverDetailView(user: $user)
             }
+        }
+    }
+    
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "approved":
+            return .green
+        case "rejected":
+            return .red
+        case "pending_review":
+            return .orange
+        default:
+            return .gray
         }
     }
 }
@@ -402,7 +425,7 @@ struct RestaurantDetailView: View {
     }
     
     private func updateStatus(_ status: String) {
-        viewModel.updateDocumentStatus(userId: user.id, status: status) { error in
+        viewModel.updateDocumentStatus(userId: user.id, userRole: .restaurant, status: status) { error in
             if let error = error {
                 errorMessage = "Failed to update status: \(error.localizedDescription)"
                 showError = true
@@ -510,111 +533,19 @@ struct UserData: Identifiable {
     let role: UserRole
     // Document related fields
     var documentStatus: String?
+    var documentsSubmitted: Bool?
+    // Restaurant specific fields
     var restaurantProofURL: String?
     var ownerIDURL: String?
     var businessHours: BusinessHours?
+    // Driver specific fields
+    var governmentIDURL: String?
+    var driverLicenseURL: String?
 }
 
 struct BusinessHours: Codable {
     let opening: String
     let closing: String
-}
-
-class UserManagementViewModel: ObservableObject {
-    @Published var users: [UserData] = []
-    @Published var isLoading = false
-    private let db = Database.database().reference()
-    
-    func fetchUsers(for role: UserRole) {
-        isLoading = true
-        users.removeAll()
-        
-        let rolePath = "\(role.rawValue.lowercased())s"
-        print("Fetching users from path: \(rolePath)")
-        
-        db.child(rolePath).observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self = self else { return }
-            
-            var fetchedUsers: [UserData] = []
-            
-            for child in snapshot.children {
-                guard let snapshot = child as? DataSnapshot,
-                      let userData = snapshot.value as? [String: Any] else {
-                    continue
-                }
-                
-                let fullName = userData["fullName"] as? String ?? "No Name"
-                let email = userData["email"] as? String ?? "No Email"
-                let phone = userData["phone"] as? String ?? "No Phone"
-                
-                var documentStatus: String?
-                var restaurantProofURL: String?
-                var ownerIDURL: String?
-                var businessHours: BusinessHours?
-                
-                // Fetch document data for restaurants
-                if role == .restaurant {
-                    if let documents = userData["documents"] as? [String: Any] {
-                        documentStatus = documents["status"] as? String
-                        if let files = documents["files"] as? [String: Any] {
-                            if let restaurantProof = files["restaurant_proof"] as? [String: Any] {
-                                restaurantProofURL = restaurantProof["url"] as? String
-                            }
-                            if let ownerID = files["owner_id"] as? [String: Any] {
-                                ownerIDURL = ownerID["url"] as? String
-                            }
-                        }
-                    }
-                    
-                    if let hours = userData["hours"] as? [String: String] {
-                        businessHours = BusinessHours(
-                            opening: hours["opening"] ?? "N/A",
-                            closing: hours["closing"] ?? "N/A"
-                        )
-                    }
-                }
-                
-                let user = UserData(
-                    id: snapshot.key,
-                    fullName: fullName,
-                    email: email,
-                    phone: phone,
-                    role: role,
-                    documentStatus: documentStatus,
-                    restaurantProofURL: restaurantProofURL,
-                    ownerIDURL: ownerIDURL,
-                    businessHours: businessHours
-                )
-                fetchedUsers.append(user)
-            }
-            
-            DispatchQueue.main.async {
-                self.users = fetchedUsers
-                self.isLoading = false
-                print("Fetched \(fetchedUsers.count) users for role: \(role.rawValue)")
-            }
-        }
-    }
-    
-    func updateDocumentStatus(userId: String, status: String, completion: @escaping (Error?) -> Void) {
-        let updates = [
-            "documents/status": status
-        ]
-        
-        db.child("restaurants").child(userId).updateChildValues(updates) { error, _ in
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(error)
-                } else {
-                    // Update the local users array
-                    if let index = self.users.firstIndex(where: { $0.id == userId }) {
-                        self.users[index].documentStatus = status
-                    }
-                    completion(nil)
-                }
-            }
-        }
-    }
 }
 
 struct ChatManagementView: View {
@@ -706,6 +637,164 @@ struct AdminDashboardView: View {
     }
     private func handleLogout() {
         authViewModel.logout()
+    }
+}
+
+struct DriverDetailView: View {
+    @Binding var user: UserData
+    @StateObject private var viewModel = UserManagementViewModel()
+    @Environment(\.dismiss) private var dismiss
+    @State private var showDocumentPreview = false
+    @State private var selectedImageURL: String?
+    @State private var showError = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Basic Information Section
+                    GroupBox(label: Text("Basic Information").bold()) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            DetailRow(icon: "person.fill", title: "Name", value: user.fullName)
+                            DetailRow(icon: "envelope.fill", title: "Email", value: user.email)
+                            DetailRow(icon: "phone.fill", title: "Phone", value: user.phone)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Document Status Section
+                    GroupBox(label: Text("Document Status").bold()) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Status:")
+                                Text(user.documentStatus?.capitalized ?? "Not Submitted")
+                                    .foregroundColor(statusColor(for: user.documentStatus))
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Documents Section
+                    GroupBox(label: Text("Documents").bold()) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if let governmentIDURL = user.governmentIDURL {
+                                Button(action: {
+                                    selectedImageURL = governmentIDURL
+                                    showDocumentPreview = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "doc.fill")
+                                        Text("View Government ID")
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                            }
+                            
+                            if let driverLicenseURL = user.driverLicenseURL {
+                                Button(action: {
+                                    selectedImageURL = driverLicenseURL
+                                    showDocumentPreview = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "doc.fill")
+                                        Text("View Driver's License")
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Approval/Rejection Section
+                    if user.documentStatus?.lowercased() == "pending_review" {
+                        GroupBox(label: Text("Actions").bold()) {
+                            HStack(spacing: 16) {
+                                Button(action: {
+                                    updateStatus("approved")
+                                }) {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("Approve")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                }
+                                
+                                Button(action: {
+                                    updateStatus("rejected")
+                                }) {
+                                    HStack {
+                                        Image(systemName: "xmark.circle.fill")
+                                        Text("Reject")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Driver Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showDocumentPreview) {
+            if let url = selectedImageURL {
+                DocumentPreviewView(imageURL: url)
+            }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func statusColor(for status: String?) -> Color {
+        guard let status = status?.lowercased() else { return .gray }
+        switch status {
+        case "approved":
+            return .green
+        case "rejected":
+            return .red
+        case "pending_review":
+            return .orange
+        default:
+            return .gray
+        }
+    }
+    
+    private func updateStatus(_ status: String) {
+        viewModel.updateDocumentStatus(userId: user.id, userRole: .driver, status: status) { error in
+            if let error = error {
+                errorMessage = "Failed to update status: \(error.localizedDescription)"
+                showError = true
+            } else {
+                user.documentStatus = status
+            }
+        }
     }
 }
 
