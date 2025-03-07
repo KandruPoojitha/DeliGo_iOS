@@ -1,5 +1,5 @@
 import SwiftUI
-import FirebaseDatabase
+import FirebaseAuth
 
 struct AdminView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -11,56 +11,48 @@ struct AdminView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            Text("Admin Dashboard")
-                .font(.title)
-                .fontWeight(.bold)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.white)
+        VStack(spacing: 20) {
+            // Logo
+            Image("deligo_logo") // Ensure this asset exists in your project
+                .resizable()
+                .scaledToFit()
+                .frame(width: 80, height: 80)
+                .padding(.top, 30)
             
-            // Main Content
-            ScrollView {
-                VStack(spacing: 20) {
-                    // User Management Card
-                    Button(action: { selectedTab = .userManagement }) {
-                        AdminMenuCard(
-                            icon: "person.2.fill",
-                            title: "User Management",
-                            description: "Manage all users and their roles"
-                        )
-                    }
-                    
-                    // Chat Management Card
-                    Button(action: { selectedTab = .chatManagement }) {
-                        AdminMenuCard(
-                            icon: "message.fill",
-                            title: "Chat Management",
-                            description: "Monitor and manage chat communications"
-                        )
-                    }
+            // Welcome Text
+            Text("Welcome, Admin!")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text("Admin Dashboard")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+            
+            Spacer().frame(height: 20)
+            
+            // Admin Actions
+            VStack(spacing: 15) {
+                Button(action: { selectedTab = .userManagement }) {
+                    AdminMenuButton(title: "User Management")
                 }
-                .padding()
+                
+                Button(action: { selectedTab = .chatManagement }) {
+                    AdminMenuButton(title: "Chat Management")
+                }
             }
+            .padding(.horizontal, 20)
             
             Spacer()
             
+            // Logout Button
             Button(action: handleLogout) {
-                HStack {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .foregroundColor(.white)
-                    Text("Logout")
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color("F4A261"))
-                .cornerRadius(25)
+                Text("Logout")
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
             }
-            .padding()
+            .padding(.bottom, 20)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGray6))
         .sheet(item: $selectedTab) { tab in
             switch tab {
@@ -85,42 +77,23 @@ extension AdminView.AdminTab: Identifiable {
     var id: Self { self }
 }
 
-struct AdminMenuCard: View {
-    let icon: String
+// Custom Admin Button UI
+struct AdminMenuButton: View {
     let title: String
-    let description: String
     
     var body: some View {
-        HStack(spacing: 15) {
-            Image(systemName: icon)
-                .font(.system(size: 30))
-                .foregroundColor(Color("F4A261"))
-                .frame(width: 60, height: 60)
-                .background(Color("F4A261").opacity(0.2))
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        Text(title)
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color(hex: "F4A261"))
+            .cornerRadius(8)
+            .shadow(radius: 2)
     }
 }
 
 #Preview {
     AdminView(authViewModel: AuthViewModel())
-} 
+}
+
