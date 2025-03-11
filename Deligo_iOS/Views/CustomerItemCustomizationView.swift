@@ -173,6 +173,8 @@ struct CustomerItemCustomizationView: View {
                     Button("Cancel") {
                         isPresented = false
                     }
+                    .font(.headline)
+                    .foregroundColor(Color(hex: "F4A261"))
                 }
             }
             .safeAreaInset(edge: .bottom) {

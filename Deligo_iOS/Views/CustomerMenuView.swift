@@ -4,8 +4,6 @@ import FirebaseDatabase
 struct CustomerMenuView: View {
     @State private var menuItems: [MenuItem] = []
     @State private var searchText = ""
-    @State private var showCustomizationSheet = false
-    @State private var selectedMenuItem: MenuItem?
     @ObservedObject var authViewModel: AuthViewModel
     let restaurant: Restaurant
     
@@ -123,14 +121,10 @@ struct CustomerMenuView: View {
                             ForEach(groupedMenuItems.keys.sorted(), id: \.self) { category in
                                 Section(header: CategoryHeader(title: category)) {
                                     ForEach(groupedMenuItems[category] ?? []) { item in
-                                        CustomerMenuItemRow(
-                                            item: item,
-                                            onTap: {
-                                                selectedMenuItem = item
-                                                showCustomizationSheet = true
-                                            },
-                                            authViewModel: authViewModel
-                                        )
+                                        NavigationLink(destination: ItemDetailView(item: item, authViewModel: authViewModel)) {
+                                            MenuItemRowView(item: item, authViewModel: authViewModel)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                         .padding(.horizontal)
                                     }
                                 }
@@ -142,15 +136,6 @@ struct CustomerMenuView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showCustomizationSheet) {
-            if let item = selectedMenuItem {
-                CustomerItemCustomizationView(
-                    item: item,
-                    isPresented: $showCustomizationSheet,
-                    authViewModel: authViewModel
-                )
-            }
-        }
         .onAppear {
             loadMenuItems()
         }
@@ -208,6 +193,293 @@ struct CustomerMenuView: View {
             }
             
             self.menuItems = items
+        }
+    }
+}
+
+struct ItemDetailView: View {
+    let item: MenuItem
+    @ObservedObject var authViewModel: AuthViewModel
+    @Environment(\.presentationMode) var presentationMode
+    @State private var selectedOptions: [String: Set<String>] = [:]
+    @State private var quantity = 1
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @ObservedObject var cartManager: CartManager
+    
+    init(item: MenuItem, authViewModel: AuthViewModel) {
+        self.item = item
+        self.authViewModel = authViewModel
+        self._cartManager = ObservedObject(wrappedValue: CartManager(userId: authViewModel.currentUserId ?? ""))
+    }
+    
+    var totalPrice: Double {
+        let basePrice = item.price * Double(quantity)
+        let customizationPrice = selectedOptions.flatMap { (_, selectedIds) in
+            item.customizationOptions.flatMap { option in
+                option.options.filter { selectedIds.contains($0.id) }
+            }
+        }.reduce(0.0) { $0 + $1.price }
+        return basePrice + (customizationPrice * Double(quantity))
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Item Image and Basic Info
+                if let imageURL = item.imageURL {
+                    AsyncImage(url: URL(string: imageURL)) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.gray.opacity(0.3)
+                    }
+                    .frame(height: 200)
+                    .clipped()
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(item.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text(item.description)
+                        .font(.body)
+                        .foregroundColor(.gray)
+                    
+                    Text("$\(String(format: "%.2f", item.price))")
+                        .font(.headline)
+                        .foregroundColor(Color(hex: "F4A261"))
+                }
+                .padding(.horizontal)
+                
+                // Quantity Selector
+                HStack {
+                    Text("Quantity")
+                        .font(.headline)
+                    Spacer()
+                    Button(action: { if quantity > 1 { quantity -= 1 } }) {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(Color(hex: "F4A261"))
+                    }
+                    Text("\(quantity)")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    Button(action: { quantity += 1 }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(Color(hex: "F4A261"))
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                
+                // Customization Options
+                if !item.customizationOptions.isEmpty {
+                    Text("Customize Your Order")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                }
+                
+                ForEach(item.customizationOptions) { option in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(option.name)
+                                .font(.headline)
+                            if option.required {
+                                Text("Required")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        
+                        if option.type == .single {
+                            SingleSelectionOptionView(
+                                option: option,
+                                selectedIds: selectedOptions[option.id] ?? []
+                            ) { selectedId in
+                                selectedOptions[option.id] = [selectedId]
+                            }
+                        } else {
+                            MultipleSelectionOptionView(
+                                option: option,
+                                selectedIds: selectedOptions[option.id] ?? []
+                            ) { selectedId in
+                                var currentSelection = selectedOptions[option.id] ?? []
+                                if currentSelection.contains(selectedId) {
+                                    currentSelection.remove(selectedId)
+                                } else if currentSelection.count < option.maxSelections {
+                                    currentSelection.insert(selectedId)
+                                }
+                                selectedOptions[option.id] = currentSelection
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                
+                // Add to Cart Button
+                Button(action: {
+                    addToCart()
+                }) {
+                    Text("Add to Cart - $\(String(format: "%.2f", totalPrice))")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(isValid ? Color(hex: "F4A261") : Color.gray)
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                }
+                .disabled(!isValid)
+                .padding(.vertical)
+            }
+        }
+        .navigationTitle(item.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Cart", isPresented: $showingAlert) {
+            Button("OK") {
+                if alertMessage.contains("successfully") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private var isValid: Bool {
+        // Check if all required options are selected
+        for option in item.customizationOptions where option.required {
+            guard let selectedIds = selectedOptions[option.id], !selectedIds.isEmpty else {
+                return false
+            }
+        }
+        return true
+    }
+    
+    private func addToCart() {
+        guard let userId = authViewModel.currentUserId else {
+            alertMessage = "Error: User not logged in"
+            showingAlert = true
+            return
+        }
+        
+        // Create customization selections
+        var customizations: [String: [CustomizationSelection]] = [:]
+        for option in item.customizationOptions {
+            let selectedIds = selectedOptions[option.id] ?? []
+            let selectedItems = option.options
+                .filter { selectedIds.contains($0.id) }
+                .map { SelectedItem(id: $0.id, name: $0.name, price: $0.price) }
+            
+            if !selectedItems.isEmpty {
+                let selection = CustomizationSelection(
+                    optionId: option.id,
+                    optionName: option.name,
+                    selectedItems: selectedItems
+                )
+                customizations[option.id] = [selection]
+            }
+        }
+        
+        // Create cart item
+        let cartItem = CartItem(
+            id: UUID().uuidString,
+            menuItemId: item.id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            imageURL: item.imageURL,
+            quantity: quantity,
+            customizations: customizations,
+            totalPrice: totalPrice
+        )
+        
+        cartManager.addToCart(item: cartItem)
+        alertMessage = "Item added to cart successfully!"
+        showingAlert = true
+    }
+}
+
+struct MenuItemRowView: View {
+    let item: MenuItem
+    @ObservedObject var authViewModel: AuthViewModel
+    @ObservedObject var favoritesManager: FavoritesManager
+    @State private var isFavorite = false
+    
+    init(item: MenuItem, authViewModel: AuthViewModel) {
+        self.item = item
+        self.authViewModel = authViewModel
+        self._favoritesManager = ObservedObject(wrappedValue: FavoritesManager(userId: authViewModel.currentUserId ?? ""))
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            if let imageURL = item.imageURL {
+                AsyncImage(url: URL(string: imageURL)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray.opacity(0.3)
+                }
+                .frame(width: 80, height: 80)
+                .cornerRadius(8)
+            } else {
+                Image(systemName: "photo")
+                    .font(.system(size: 30))
+                    .foregroundColor(.gray)
+                    .frame(width: 80, height: 80)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Text(item.description)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .lineLimit(2)
+                
+                HStack {
+                    Text("$\(String(format: "%.2f", item.price))")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "F4A261"))
+                    
+                    if !item.customizationOptions.isEmpty {
+                        Text("•")
+                        Text("Customizable")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                favoritesManager.toggleFavorite(item: item)
+                isFavorite.toggle()
+            }) {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .foregroundColor(isFavorite ? .red : .gray)
+            }
+            .buttonStyle(BorderlessButtonStyle())
+            .padding(.horizontal, 8)
+        }
+        .padding(.vertical, 8)
+        .onAppear {
+            isFavorite = favoritesManager.isFavorite(itemId: item.id)
         }
     }
 }
