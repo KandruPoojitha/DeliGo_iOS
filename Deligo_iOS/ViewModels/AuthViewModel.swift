@@ -233,6 +233,14 @@ class AuthViewModel: ObservableObject {
             return
         }
         
+        // Phone number validation - stripped down to just 10 digits as a safety check
+        let strippedPhone = phoneNumber.filter { "0123456789".contains($0) }
+        guard strippedPhone.count == 10 else {
+            errorMessage = "Phone number must be exactly 10 digits"
+            isLoading = false
+            return
+        }
+        
         auth.createUser(withEmail: email, password: password) { [weak self] result, error in
             guard let self = self else { return }
             
@@ -269,31 +277,64 @@ class AuthViewModel: ObservableObject {
     
     private func saveUserData(userId: String, role: UserRole, fullName: String, email: String, phone: String) {
         
-        let userData: [String: Any] = [
-            "fullName": fullName,
-            "email": email,
-            "phone": phone,
-            "role": role.rawValue,
-            "createdAt": ServerValue.timestamp()
-        ]
-        
-        db.child("\(role.rawValue.lowercased())s").child(userId).setValue(userData) { [weak self] error, _ in
-            guard let self = self else { return }
+        if role == .restaurant {
+            let storeInfo: [String: Any] = [
+                "name": fullName,
+                "email": email,
+                "phone": phone,
+                "description": "Delicious handcrafted food made with fresh, locally-sourced ingredients.",
+                "address": ""
+            ]
             
-            DispatchQueue.main.async {
-                self.isLoading = false
+            let restaurantData: [String: Any] = [
+                "role": role.rawValue,
+                "store_info": storeInfo,
+                "documentsSubmitted": false,
+                "isOpen": false,
+                "createdAt": ServerValue.timestamp()
+            ]
+            
+            db.child("restaurants").child(userId).setValue(restaurantData) { [weak self] error, _ in
+                guard let self = self else { return }
                 
-                if let error = error {
-                    self.errorMessage = "Failed to save user data: \(error.localizedDescription)"
-                    return
-                }
-                
-                self.showSuccessMessage = true
-                self.currentUserRole = role
-                if role == .restaurant {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        self.errorMessage = "Failed to save user data: \(error.localizedDescription)"
+                        return
+                    }
+                    
+                    self.showSuccessMessage = true
+                    self.currentUserRole = role
                     self.documentStatus = .notSubmitted
+                    self.isAuthenticated = true
                 }
-                self.isAuthenticated = true
+            }
+        } else {
+            let userData: [String: Any] = [
+                "fullName": fullName,
+                "email": email,
+                "phone": phone,
+                "role": role.rawValue,
+                "createdAt": ServerValue.timestamp()
+            ]
+            
+            db.child("\(role.rawValue.lowercased())s").child(userId).setValue(userData) { [weak self] error, _ in
+                guard let self = self else { return }
+                
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        self.errorMessage = "Failed to save user data: \(error.localizedDescription)"
+                        return
+                    }
+                    
+                    self.showSuccessMessage = true
+                    self.currentUserRole = role
+                    self.isAuthenticated = true
+                }
             }
         }
     }

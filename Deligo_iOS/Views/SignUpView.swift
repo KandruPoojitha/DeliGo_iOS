@@ -27,6 +27,14 @@ struct SignUpView: View {
             return
         }
         
+        // Phone number validation
+        let phoneRegex = "^[0-9]{10}$"
+        let phonePredicate = NSPredicate(format: "SELF MATCHES %@", phoneRegex)
+        guard phonePredicate.evaluate(with: phoneNumber) else {
+            authViewModel.errorMessage = "Phone number must be exactly 10 digits"
+            return
+        }
+        
         // Call signup method
         authViewModel.signUp(
             name: name,
@@ -35,6 +43,13 @@ struct SignUpView: View {
             phoneNumber: phoneNumber,
             role: selectedRole
         )
+    }
+    
+    // Function to limit phone input to 10 digits and only numbers
+    private func limitPhoneNumber(_ input: String) -> String {
+        let filtered = input.filter { "0123456789".contains($0) }
+        let truncated = String(filtered.prefix(10))
+        return truncated
     }
     
     var body: some View {
@@ -112,8 +127,11 @@ struct SignUpView: View {
                         Image(systemName: "phone")
                             .foregroundColor(.gray)
                         TextField("Phone Number", text: $phoneNumber)
-                            .keyboardType(.phonePad)
+                            .keyboardType(.numberPad)
                             .textContentType(.telephoneNumber)
+                            .onChange(of: phoneNumber) { oldValue, newValue in
+                                phoneNumber = limitPhoneNumber(newValue)
+                            }
                     }
                     .padding()
                     .background(Color(.systemGray6))
