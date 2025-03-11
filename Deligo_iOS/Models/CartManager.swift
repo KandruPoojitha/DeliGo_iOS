@@ -36,6 +36,7 @@ class CartManager: ObservableObject {
                 let price = dict["price"] as? Double ?? 0.0
                 let imageURL = dict["imageURL"] as? String
                 let quantity = dict["quantity"] as? Int ?? 1
+                let specialInstructions = dict["specialInstructions"] as? String ?? ""
                 let totalPrice = dict["totalPrice"] as? Double ?? 0.0
                 
                 // Parse customizations
@@ -78,6 +79,7 @@ class CartManager: ObservableObject {
                     imageURL: imageURL,
                     quantity: quantity,
                     customizations: customizations,
+                    specialInstructions: specialInstructions,
                     totalPrice: totalPrice
                 )
                 print("Successfully created cart item: \(name)")
@@ -117,6 +119,7 @@ class CartManager: ObservableObject {
                     ]
                 }
             },
+            "specialInstructions": item.specialInstructions,
             "totalPrice": item.totalPrice,
             "timestamp": ServerValue.timestamp()
         ]

@@ -10,6 +10,7 @@ struct CartItem: Identifiable, Equatable {
     let imageURL: String?
     let quantity: Int
     let customizations: [String: [CustomizationSelection]]
+    let specialInstructions: String
     let totalPrice: Double
     
     static func == (lhs: CartItem, rhs: CartItem) -> Bool {
@@ -21,6 +22,7 @@ struct CartItem: Identifiable, Equatable {
         lhs.imageURL == rhs.imageURL &&
         lhs.quantity == rhs.quantity &&
         lhs.totalPrice == rhs.totalPrice &&
+        lhs.specialInstructions == rhs.specialInstructions &&
         NSDictionary(dictionary: lhs.customizations) == NSDictionary(dictionary: rhs.customizations)
     }
 }
@@ -265,6 +267,7 @@ struct CustomerItemCustomizationView: View {
             imageURL: item.imageURL,
             quantity: quantity,
             customizations: customizations,
+            specialInstructions: "",
             totalPrice: totalPrice
         )
         

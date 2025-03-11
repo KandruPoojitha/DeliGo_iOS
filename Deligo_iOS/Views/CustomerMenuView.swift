@@ -205,6 +205,7 @@ struct ItemDetailView: View {
     @State private var quantity = 1
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var specialInstructions: String = ""
     @ObservedObject var cartManager: CartManager
     
     init(item: MenuItem, authViewModel: AuthViewModel) {
@@ -324,6 +325,20 @@ struct ItemDetailView: View {
                     .padding(.horizontal)
                 }
                 
+                // Special Instructions
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Special Instructions")
+                        .font(.headline)
+                    
+                    TextField("Add any special requests here...", text: $specialInstructions, axis: .vertical)
+                        .padding()
+                        .frame(minHeight: 80)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        .lineLimit(3...5)
+                }
+                .padding(.horizontal)
+                
                 // Add to Cart Button
                 Button(action: {
                     addToCart()
@@ -399,6 +414,7 @@ struct ItemDetailView: View {
             imageURL: item.imageURL,
             quantity: quantity,
             customizations: customizations,
+            specialInstructions: specialInstructions.trimmingCharacters(in: .whitespacesAndNewlines),
             totalPrice: totalPrice
         )
         
