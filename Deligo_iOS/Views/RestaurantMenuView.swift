@@ -937,7 +937,10 @@ struct AddOptionView: View {
             numberOfRatings: 100,
             address: "123 Test Street",
             imageURL: nil,
-            isOpen: true
+            isOpen: true,
+            latitude: 43.651070,  // Toronto coordinates for preview
+            longitude: -79.347015,
+            distance: 1500  // 1.5 km
         ),
         authViewModel: AuthViewModel()
     )

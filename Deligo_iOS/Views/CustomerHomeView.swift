@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseDatabase
+import CoreLocation
 
 struct Restaurant: Identifiable {
     let id: String
@@ -14,6 +15,16 @@ struct Restaurant: Identifiable {
     let address: String
     let imageURL: String?
     let isOpen: Bool
+    let latitude: Double
+    let longitude: Double
+    var distance: Double?
+    
+    var location: CLLocation? {
+        if latitude != 0 && longitude != 0 {
+            return CLLocation(latitude: latitude, longitude: longitude)
+        }
+        return nil
+    }
 }
 
 struct RestaurantRow: View {
@@ -43,9 +54,21 @@ struct RestaurantRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(restaurant.name)
                     .font(.headline)
-                Text(restaurant.cuisine)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                
+                HStack {
+                    Text(restaurant.cuisine)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    Text("•")
+                        .foregroundColor(.gray)
+                    
+                    Text(restaurant.priceRange)
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "F4A261"))
+                        .fontWeight(.medium)
+                }
+                
                 HStack {
                     Image(systemName: "star.fill")
                         .foregroundColor(.yellow)
@@ -56,29 +79,60 @@ struct RestaurantRow: View {
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
+                
+                if let distance = restaurant.distance {
+                    HStack(spacing: 2) {
+                        Image(systemName: "location.fill")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Text(formatDistance(distance))
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
             }
             
             Spacer()
             
-            if !restaurant.isOpen {
-                Text("Closed")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(4)
+            VStack(alignment: .trailing, spacing: 4) {
+                if !restaurant.isOpen {
+                    Text("Closed")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(4)
+                }
             }
         }
         .padding(.vertical, 8)
+    }
+    
+    private func formatDistance(_ distance: Double) -> String {
+        if distance < 1000 {
+            return String(format: "%.0f meters away", distance)
+        } else {
+            return String(format: "%.1f km away", distance / 1000)
+        }
     }
 }
 
 struct MainCustomerView: View {
     @ObservedObject var authViewModel: AuthViewModel
+    @StateObject private var locationManager = CustomLocationManager()
     @State private var searchText = ""
     @State private var selectedTab = 0
     @State private var restaurants: [Restaurant] = []
+    @State private var sortOption: SortOption = .distance
+    
+    enum SortOption: String, CaseIterable, Identifiable {
+        case distance = "Distance"
+        case priceLowToHigh = "Price: Low to High"
+        case priceHighToLow = "Price: High to Low"
+        
+        var id: String { self.rawValue }
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -95,6 +149,41 @@ struct MainCustomerView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
                     .padding()
+                    
+                    // Location indicator
+//                    if let location = locationManager.location {
+//                        HStack {
+//                            Image(systemName: "location.fill")
+//                                .foregroundColor(Color(hex: "F4A261"))
+//                            Text("Your location: \(location.coordinate.latitude.formatted()), \(location.coordinate.longitude.formatted())")
+//                                .font(.caption)
+//                                .foregroundColor(.gray)
+//                        }
+//                        .padding(.horizontal)
+//                        .padding(.bottom, 8)
+//                    }
+                    
+                    // Sort Options
+                    HStack {
+                        Text("Sort by:")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                        
+                        Picker("Sort by", selection: $sortOption) {
+                            ForEach(SortOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .accentColor(Color(hex: "F4A261"))
+                        .onChange(of: sortOption) { _, _ in
+                            sortRestaurants()
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 4)
                     
                     if filteredRestaurants.isEmpty {
                         VStack(spacing: 20) {
@@ -160,6 +249,8 @@ struct MainCustomerView: View {
         }
         .accentColor(Color(hex: "F4A261"))
         .onAppear {
+            locationManager.requestLocationPermission()
+            locationManager.startUpdatingLocation()
             loadRestaurants()
         }
     }
@@ -192,7 +283,6 @@ struct MainCustomerView: View {
 
                 print("DEBUG: Processing restaurant with ID: \(childSnapshot.key)")
 
-                // Debugging to check structure
                 if let documents = dict["documents"] as? [String: Any] {
                     print("DEBUG: Found documents node")
                     if let documentStatus = documents["status"] as? String {
@@ -216,6 +306,15 @@ struct MainCustomerView: View {
                     print("DEBUG: Missing or invalid store_info for restaurant: \(childSnapshot.key)")
                     continue
                 }
+                
+                // Get location data
+                var latitude: Double = 0
+                var longitude: Double = 0
+                
+                if let location = dict["location"] as? [String: Any] {
+                    latitude = location["latitude"] as? Double ?? 0
+                    longitude = location["longitude"] as? Double ?? 0
+                }
 
                 let restaurant = Restaurant(
                     id: childSnapshot.key,
@@ -229,20 +328,92 @@ struct MainCustomerView: View {
                     numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
                     address: storeInfo["address"] as? String ?? "",
                     imageURL: storeInfo["imageURL"] as? String,
-                    isOpen: dict["isOpen"] as? Bool ?? false
+                    isOpen: dict["isOpen"] as? Bool ?? false,
+                    latitude: latitude,
+                    longitude: longitude,
+                    distance: nil
                 )
 
                 loadedRestaurants.append(restaurant)
                 print("DEBUG: Added restaurant to loaded list: \(restaurant.name)")
             }
-
-            // Sort restaurants by name
-            loadedRestaurants.sort { $0.name < $1.name }
             
             DispatchQueue.main.async {
-                self.restaurants = loadedRestaurants
-                print("DEBUG: Updated UI with \(self.restaurants.count) restaurants")
+                self.updateDistances(for: loadedRestaurants)
             }
         }
+    }
+    
+    private func updateDistances(for restaurants: [Restaurant]) {
+        var restaurantsWithDistance = restaurants
+        
+        if let userLocation = locationManager.location {
+            for i in 0..<restaurantsWithDistance.count {
+                if let restaurantLocation = restaurantsWithDistance[i].location {
+                    let distance = userLocation.distance(from: restaurantLocation)
+                    restaurantsWithDistance[i].distance = distance
+                }
+            }
+        } else {
+            for i in 0..<restaurantsWithDistance.count {
+                restaurantsWithDistance[i].distance = nil
+            }
+        }
+        
+        self.restaurants = restaurantsWithDistance
+        sortRestaurants()
+    }
+    
+    private func sortRestaurants() {
+        var sortedRestaurants = restaurants
+        
+        switch sortOption {
+        case .distance:
+            sortedRestaurants.sort { 
+                let dist1 = $0.distance ?? Double.infinity
+                let dist2 = $1.distance ?? Double.infinity
+                
+                if dist1 == Double.infinity && dist2 == Double.infinity {
+                    // If both distances are unknown, sort by name
+                    return $0.name < $1.name
+                }
+                
+                return dist1 < dist2
+            }
+            
+        case .priceLowToHigh:
+            sortedRestaurants.sort { 
+                let price1 = getPriceValue(from: $0.priceRange)
+                let price2 = getPriceValue(from: $1.priceRange)
+                
+                if price1 == price2 {
+                    // If prices are equal, sort by name
+                    return $0.name < $1.name
+                }
+                
+                return price1 < price2
+            }
+            
+        case .priceHighToLow:
+            // Sort by price range (high to low)
+            sortedRestaurants.sort { 
+                let price1 = getPriceValue(from: $0.priceRange)
+                let price2 = getPriceValue(from: $1.priceRange)
+                
+                if price1 == price2 {
+                    // If prices are equal, sort by name
+                    return $0.name < $1.name
+                }
+                
+                return price1 > price2
+            }
+        }
+        
+        self.restaurants = sortedRestaurants
+        print("DEBUG: Sorted restaurants by \(sortOption.rawValue)")
+    }
+    
+    private func getPriceValue(from priceRange: String) -> Int {
+        return priceRange.filter { $0 == "$" }.count
     }
 } 

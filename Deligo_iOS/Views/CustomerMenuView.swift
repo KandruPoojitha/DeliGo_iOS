@@ -48,9 +48,19 @@ struct CustomerMenuView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text(restaurant.cuisine)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                    HStack {
+                        Text(restaurant.cuisine)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            
+                        Text("•")
+                            .foregroundColor(.gray)
+                            
+                        Text(restaurant.priceRange)
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "F4A261"))
+                            .fontWeight(.medium)
+                    }
                     
                     HStack {
                         Image(systemName: "star.fill")
@@ -59,9 +69,21 @@ struct CustomerMenuView: View {
                         Text("(\(restaurant.numberOfRatings))")
                             .foregroundColor(.gray)
                         Text("•")
-                        Text(restaurant.priceRange)
+                        Spacer()
                     }
                     .font(.subheadline)
+                    
+                    // Distance information
+                    if let distance = restaurant.distance {
+                        HStack {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.gray)
+                            Text(formatDistance(distance))
+                                .foregroundColor(.gray)
+                        }
+                        .font(.subheadline)
+                        .padding(.top, 2)
+                    }
                 }
                 .padding()
             }
@@ -193,6 +215,14 @@ struct CustomerMenuView: View {
             }
             
             self.menuItems = items
+        }
+    }
+    
+    private func formatDistance(_ distance: Double) -> String {
+        if distance < 1000 {
+            return String(format: "%.0f meters away", distance)
+        } else {
+            return String(format: "%.1f km away", distance / 1000)
         }
     }
 }
@@ -527,8 +557,11 @@ struct CategoryHeader: View {
             numberOfRatings: 100,
             address: "123 Test Street",
             imageURL: nil,
-            isOpen: true
+            isOpen: true,
+            latitude: 43.651070,  // Toronto coordinates for preview
+            longitude: -79.347015,
+            distance: 1500  // 1.5 km
         ),
         authViewModel: AuthViewModel()
     )
-} 
+}

@@ -154,7 +154,10 @@ struct RestaurantHomeView: View {
                     numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
                     address: storeInfo["address"] as? String ?? "",
                     imageURL: storeInfo["imageURL"] as? String,
-                    isOpen: dict["isOpen"] as? Bool ?? false
+                    isOpen: dict["isOpen"] as? Bool ?? false,
+                    latitude: (dict["location"] as? [String: Any])?["latitude"] as? Double ?? 0,
+                    longitude: (dict["location"] as? [String: Any])?["longitude"] as? Double ?? 0,
+                    distance: nil
                 )
                 print("DEBUG: Successfully loaded restaurant data")
             }
