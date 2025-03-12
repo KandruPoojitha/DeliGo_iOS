@@ -26,6 +26,10 @@ class AuthViewModel: ObservableObject {
         Auth.auth().currentUser?.email
     }
     
+    var phone: String? {
+        return phoneNumber
+    }
+    
     @Published var fullName: String?
     @Published var phoneNumber: String?
     
@@ -283,7 +287,11 @@ class AuthViewModel: ObservableObject {
                 "email": email,
                 "phone": phone,
                 "description": "Delicious handcrafted food made with fresh, locally-sourced ingredients.",
-                "address": ""
+                "address": "",
+                "price_range": [
+                    "min": 5,
+                    "max": 25
+                ]
             ]
             
             let restaurantData: [String: Any] = [

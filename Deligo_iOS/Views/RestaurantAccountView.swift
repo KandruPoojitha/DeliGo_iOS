@@ -80,6 +80,7 @@ struct StoreInfo: Codable {
     var phone: String
     var email: String
     var description: String
+    var priceRange: PriceRange
     
     init() {
         self.name = ""
@@ -87,6 +88,22 @@ struct StoreInfo: Codable {
         self.phone = ""
         self.email = ""
         self.description = ""
+        self.priceRange = PriceRange()
+    }
+}
+
+struct PriceRange: Codable {
+    var min: Int
+    var max: Int
+    
+    init() {
+        self.min = 5
+        self.max = 25
+    }
+    
+    init(min: Int, max: Int) {
+        self.min = min
+        self.max = max
     }
 }
 
@@ -219,6 +236,14 @@ struct RestaurantAccountView: View {
                 info.phone = value["phone"] as? String ?? ""
                 info.email = value["email"] as? String ?? authViewModel.email ?? ""
                 info.description = value["description"] as? String ?? ""
+                
+                // Extract price range data
+                if let priceRangeData = value["price_range"] as? [String: Any] {
+                    let min = priceRangeData["min"] as? Int ?? 5
+                    let max = priceRangeData["max"] as? Int ?? 25
+                    info.priceRange = PriceRange(min: min, max: max)
+                }
+                
                 self.storeInfo = info
             } else {
                 // If no store info exists yet, initialize with user's data
@@ -336,7 +361,7 @@ struct StoreInfoView: View {
                     // Address field with suggestions
                     VStack(alignment: .leading, spacing: 0) {
                         TextField(appSettings.localizedString("address"), text: $storeInfo.address)
-                            .onChange(of: storeInfo.address) { newValue in
+                            .onChange(of: storeInfo.address) { oldValue, newValue in
                                 if !newValue.isEmpty {
                                     searchAddress(newValue)
                                     showingAddressSuggestions = true
@@ -348,38 +373,37 @@ struct StoreInfoView: View {
                         
                         if showingAddressSuggestions && !searchResults.isEmpty {
                             ScrollView {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    ForEach(searchResults, id: \.placeID) { result in
+                                VStack(alignment: .leading) {
+                                    ForEach(searchResults, id: \.placeID) { prediction in
                                         Button(action: {
-                                            selectLocation(result)
+                                            selectLocation(prediction)
                                             showingAddressSuggestions = false
                                         }) {
-                                            HStack {
-                                                Text(result.attributedPrimaryText.string)
-                                                    .foregroundColor(.primary)
-                                                    .font(.system(size: 17))
-                                                Spacer()
-                                                Image(systemName: "chevron.right")
-                                                    .foregroundColor(Color(.systemGray3))
-                                                    .font(.system(size: 14))
-                                            }
-                                            .padding(.vertical, 12)
-                                            .padding(.horizontal)
+                                            Text(prediction.attributedPrimaryText.string)
+                                                .lineLimit(1)
                                         }
-                                        
-                                        if result.placeID != searchResults.last?.placeID {
-                                            Divider()
-                                        }
+                                        .padding(.vertical, 8)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                     }
                                 }
+                                .padding()
                             }
-                            .frame(maxHeight: 250)
-                            .background(Color(.systemBackground))
+                            .frame(height: 200)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
                         }
                     }
                     
+                    // Phone field
                     TextField(appSettings.localizedString("phone"), text: $storeInfo.phone)
                         .keyboardType(.phonePad)
+                        .onAppear {
+                            if storeInfo.phone.isEmpty {
+                                storeInfo.phone = authViewModel.phone ?? ""
+                            }
+                        }
+                    
+                    // Email field
                     TextField(appSettings.localizedString("email"), text: $storeInfo.email)
                         .keyboardType(.emailAddress)
                         .onAppear {
@@ -387,6 +411,33 @@ struct StoreInfoView: View {
                                 storeInfo.email = authViewModel.email ?? ""
                             }
                         }
+                }
+                
+                // Price Range Section
+                Section(header: Text(appSettings.localizedString("price_range"))) {
+                    HStack {
+                        Text("Min: $\(storeInfo.priceRange.min)")
+                        Spacer()
+                        Text("Max: $\(storeInfo.priceRange.max)")
+                    }
+                    
+                    HStack {
+                        Text("$")
+                        Slider(value: Binding(
+                            get: { Double(storeInfo.priceRange.min) },
+                            set: { storeInfo.priceRange.min = Int($0) }
+                        ), in: 1...Double(storeInfo.priceRange.max), step: 1)
+                        Text("$$$")
+                    }
+                    
+                    HStack {
+                        Text("$")
+                        Slider(value: Binding(
+                            get: { Double(storeInfo.priceRange.max) },
+                            set: { storeInfo.priceRange.max = Int($0) }
+                        ), in: Double(storeInfo.priceRange.min)...100, step: 1)
+                        Text("$$$")
+                    }
                 }
                 
                 Section(header: Text(appSettings.localizedString("about"))) {
@@ -429,6 +480,7 @@ struct StoreInfoView: View {
     }
     
     private func selectLocation(_ prediction: GMSAutocompletePrediction) {
+        // Use the older API method since the newer one may not be available
         placesClient.fetchPlace(
             fromPlaceID: prediction.placeID,
             placeFields: [.name, .formattedAddress, .coordinate],

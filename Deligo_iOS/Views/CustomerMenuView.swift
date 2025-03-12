@@ -380,7 +380,7 @@ struct ItemDetailView: View {
     }
     
     private func addToCart() {
-        guard let userId = authViewModel.currentUserId else {
+        guard authViewModel.currentUserId != nil else {
             alertMessage = "Error: User not logged in"
             showingAlert = true
             return

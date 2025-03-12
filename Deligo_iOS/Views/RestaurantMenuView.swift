@@ -448,9 +448,9 @@ struct EditMenuItemView: View {
             .sheet(isPresented: $showingCustomizationSheet) {
                 AddCustomizationView(customizationOptions: $customizationOptions)
             }
-            .onChange(of: selectedImage) { _ in
+            .onChange(of: selectedImage) { oldValue, newValue in
                 Task {
-                    if let data = try? await selectedImage?.loadTransferable(type: Data.self),
+                    if let data = try? await newValue?.loadTransferable(type: Data.self),
                        let uiImage = UIImage(data: data) {
                         selectedUIImage = uiImage
                     }
@@ -688,9 +688,9 @@ struct AddMenuItemView: View {
             .sheet(isPresented: $showingCustomizationSheet) {
                 AddCustomizationView(customizationOptions: $customizationOptions)
             }
-            .onChange(of: selectedImage) { _ in
+            .onChange(of: selectedImage) { oldValue, newValue in
                 Task {
-                    if let data = try? await selectedImage?.loadTransferable(type: Data.self),
+                    if let data = try? await newValue?.loadTransferable(type: Data.self),
                        let uiImage = UIImage(data: data) {
                         selectedUIImage = uiImage
                     }

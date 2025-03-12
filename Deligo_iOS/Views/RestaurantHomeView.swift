@@ -92,7 +92,7 @@ struct RestaurantHomeView: View {
                 }
             }
         }
-        .onChange(of: isRestaurantOpen) { newValue in
+        .onChange(of: isRestaurantOpen) { oldValue, newValue in
             updateRestaurantStatus(isOpen: newValue)
         }
     }

@@ -12,6 +12,11 @@ struct RestaurantDocumentUploadView: View {
     @State private var ownerID: PhotosPickerItem?
     @State private var ownerIDImage: Image?
     
+    // Store Info Fields
+    @State private var address = ""
+    @State private var minPrice = 5.0
+    @State private var maxPrice = 25.0
+    
     // Business Hours
     @State private var openingTime = Date()
     @State private var closingTime = Date()
@@ -22,7 +27,7 @@ struct RestaurantDocumentUploadView: View {
     @State private var errorMessage = ""
     
     private var isSubmitEnabled: Bool {
-        restaurantProof != nil && ownerID != nil
+        restaurantProof != nil && ownerID != nil && !address.isEmpty
     }
     
     var body: some View {
@@ -93,6 +98,48 @@ struct RestaurantDocumentUploadView: View {
                             .frame(height: 150)
                             .background(Color(hex: "F4A261").opacity(0.1))
                             .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding(.bottom)
+                
+                // Restaurant Address Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Restaurant Address")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    TextField("Enter your restaurant address", text: $address)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                }
+                .padding(.bottom)
+                
+                // Price Range Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Price Range")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Min: $\(Int(minPrice))")
+                            Spacer()
+                            Text("Max: $\(Int(maxPrice))")
+                        }
+                        .foregroundColor(.gray)
+                        
+                        HStack {
+                            Text("$")
+                            Slider(value: $minPrice, in: 1...maxPrice, step: 1)
+                            Text("$$$")
+                        }
+                        
+                        HStack {
+                            Text("$")
+                            Slider(value: $maxPrice, in: minPrice...100, step: 1)
+                            Text("$$$")
                         }
                     }
                 }
@@ -173,25 +220,77 @@ struct RestaurantDocumentUploadView: View {
         guard let userId = authViewModel.currentUserId else { return }
         isUploading = true
         
-        // Save business hours first
-        let hours = [
-            "opening": formatTime(openingTime),
-            "closing": formatTime(closingTime)
-        ]
-        
-        let db = Database.database().reference()
-        db.child("restaurants").child(userId).child("hours").setValue(hours) { error, _ in
-            if let error = error {
-                handleError("Failed to save business hours: \(error.localizedDescription)")
+        // Save store info first (including address and price range)
+        saveStoreInfo { success in
+            if !success {
                 return
             }
             
-            // Upload restaurant proof
-            uploadDocument(restaurantProof, type: "restaurant_proof") {
-                // Upload owner ID after restaurant proof
-                uploadDocument(ownerID, type: "owner_id") {
-                    finalizeUpload()
+            // Save business hours
+            let hours = [
+                "opening": formatTime(openingTime),
+                "closing": formatTime(closingTime)
+            ]
+            
+            let db = Database.database().reference()
+            db.child("restaurants").child(userId).child("hours").setValue(hours) { error, _ in
+                if let error = error {
+                    handleError("Failed to save business hours: \(error.localizedDescription)")
+                    return
                 }
+                
+                // Upload restaurant proof
+                uploadDocument(restaurantProof, type: "restaurant_proof") {
+                    // Upload owner ID after restaurant proof
+                    uploadDocument(ownerID, type: "owner_id") {
+                        finalizeUpload()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveStoreInfo(completion: @escaping (Bool) -> Void) {
+        guard let userId = authViewModel.currentUserId else {
+            handleError("User ID not found")
+            completion(false)
+            return
+        }
+        
+        let db = Database.database().reference()
+        let storeInfoRef = db.child("restaurants").child(userId).child("store_info")
+        
+        // Get existing store_info first
+        storeInfoRef.observeSingleEvent(of: .value) { snapshot in
+            var storeInfo: [String: Any] = [:]
+            
+            if let existingData = snapshot.value as? [String: Any] {
+                storeInfo = existingData
+            }
+            
+            // Add or update the new fields
+            storeInfo["address"] = self.address
+            storeInfo["price_range"] = [
+                "min": Int(self.minPrice),
+                "max": Int(self.maxPrice)
+            ]
+            
+            // Save location data separately
+            let locationData: [String: Any] = [
+                "address": self.address
+            ]
+            
+            db.child("restaurants").child(userId).child("location").updateChildValues(locationData)
+            
+            // Save updated store_info
+            storeInfoRef.updateChildValues(storeInfo) { error, _ in
+                if let error = error {
+                    self.handleError("Failed to save store info: \(error.localizedDescription)")
+                    completion(false)
+                    return
+                }
+                
+                completion(true)
             }
         }
     }
