@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseDatabase
 import GoogleMaps
 import GooglePlaces
 
@@ -7,6 +8,9 @@ import GooglePlaces
 struct Deligo_iOSApp: App {
     init() {
         FirebaseApp.configure()
+        
+        // Enable Firebase offline persistence
+        Database.database().isPersistenceEnabled = true
         
         if let path = Bundle.main.path(forResource: "GoogleMapsConfig", ofType: "plist"),
            let dict = NSDictionary(contentsOfFile: path) as? [String: Any],

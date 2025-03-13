@@ -8,6 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 84223D672D77FB2700EFC440 /* GoogleMaps */; };
+		84B1E59A2D8262D500710241 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5992D8262D500710241 /* Stripe */; };
+		84B1E59C2D8262D500710241 /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E59B2D8262D500710241 /* StripeApplePay */; };
+		84B1E59E2D8262D500710241 /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E59D2D8262D500710241 /* StripeCardScan */; };
+		84B1E5A02D8262D500710241 /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E59F2D8262D500710241 /* StripeConnect */; };
+		84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A12D8262D500710241 /* StripePaymentSheet */; };
+		84B1E5A42D8262D500710241 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A32D8262D500710241 /* StripePayments */; };
+		84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A52D8262D500710241 /* StripePaymentsUI */; };
 		84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E12D79948C00D1F76A /* GooglePlaces */; };
 		84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */; };
 		84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5922D72D18500ACD0AD /* FirebaseAuth */; };
@@ -64,13 +71,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */,
+				84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */,
 				84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */,
+				84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */,
 				84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */,
 				84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */,
 				84D6A5952D72D18500ACD0AD /* FirebaseCore in Frameworks */,
+				84B1E59C2D8262D500710241 /* StripeApplePay in Frameworks */,
 				84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */,
 				84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */,
+				84B1E59E2D8262D500710241 /* StripeCardScan in Frameworks */,
 				84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */,
+				84B1E5A02D8262D500710241 /* StripeConnect in Frameworks */,
+				84B1E5A42D8262D500710241 /* StripePayments in Frameworks */,
+				84B1E59A2D8262D500710241 /* Stripe in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +153,13 @@
 				84223D672D77FB2700EFC440 /* GoogleMaps */,
 				84D4E0E12D79948C00D1F76A /* GooglePlaces */,
 				84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */,
+				84B1E5992D8262D500710241 /* Stripe */,
+				84B1E59B2D8262D500710241 /* StripeApplePay */,
+				84B1E59D2D8262D500710241 /* StripeCardScan */,
+				84B1E59F2D8262D500710241 /* StripeConnect */,
+				84B1E5A12D8262D500710241 /* StripePaymentSheet */,
+				84B1E5A32D8262D500710241 /* StripePayments */,
+				84B1E5A52D8262D500710241 /* StripePaymentsUI */,
 			);
 			productName = Deligo_iOS;
 			productReference = 84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */;
@@ -227,6 +248,7 @@
 				84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
 				84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */,
+				84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 84D6A5572D72D0A900ACD0AD /* Products */;
@@ -597,6 +619,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.7.0;
+			};
+		};
 		84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googlemaps/ios-places-sdk";
@@ -628,6 +658,41 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
 			productName = GoogleMaps;
+		};
+		84B1E5992D8262D500710241 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = Stripe;
+		};
+		84B1E59B2D8262D500710241 /* StripeApplePay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeApplePay;
+		};
+		84B1E59D2D8262D500710241 /* StripeCardScan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeCardScan;
+		};
+		84B1E59F2D8262D500710241 /* StripeConnect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeConnect;
+		};
+		84B1E5A12D8262D500710241 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+		84B1E5A32D8262D500710241 /* StripePayments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePayments;
+		};
+		84B1E5A52D8262D500710241 /* StripePaymentsUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentsUI;
 		};
 		84D4E0E12D79948C00D1F76A /* GooglePlaces */ = {
 			isa = XCSwiftPackageProductDependency;

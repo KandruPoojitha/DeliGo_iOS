@@ -1,7 +1,7 @@
 import SwiftUI
 import FirebaseDatabase
 
-struct CartItem: Identifiable, Equatable {
+struct CartItem: Identifiable, Equatable, Codable {
     let id: String
     let menuItemId: String
     let name: String
@@ -12,6 +12,19 @@ struct CartItem: Identifiable, Equatable {
     let customizations: [String: [CustomizationSelection]]
     let specialInstructions: String
     let totalPrice: Double
+    
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case menuItemId
+        case name
+        case description
+        case price
+        case imageURL
+        case quantity
+        case customizations
+        case specialInstructions
+        case totalPrice
+    }
     
     static func == (lhs: CartItem, rhs: CartItem) -> Bool {
         lhs.id == rhs.id &&

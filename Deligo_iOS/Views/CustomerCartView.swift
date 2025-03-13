@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseDatabase
 
 struct CustomerCartView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -19,7 +20,7 @@ struct CustomerCartView: View {
                 if cartManager.cartItems.isEmpty {
                     EmptyCartView()
                 } else {
-                    CartItemsListView(cartManager: cartManager)
+                    CartItemsListView(cartManager: cartManager, authViewModel: authViewModel)
                 }
             }
             .navigationTitle("Cart")
@@ -72,6 +73,7 @@ struct EmptyCartView: View {
 
 struct CartItemsListView: View {
     @ObservedObject var cartManager: CartManager
+    @ObservedObject var authViewModel: AuthViewModel
     
     var body: some View {
         VStack {
@@ -84,7 +86,7 @@ struct CartItemsListView: View {
                 .padding()
             }
             
-            CartTotalView(totalPrice: cartManager.totalCartPrice)
+            CartTotalView(totalPrice: cartManager.totalCartPrice, cartManager: cartManager, authViewModel: authViewModel)
         }
     }
 }
@@ -225,6 +227,9 @@ struct CustomizationsView: View {
 
 struct CartTotalView: View {
     let totalPrice: Double
+    @ObservedObject var cartManager: CartManager
+    @ObservedObject var authViewModel: AuthViewModel
+    @State private var showingCheckout = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -241,9 +246,7 @@ struct CartTotalView: View {
                         .foregroundColor(Color(hex: "F4A261"))
                 }
                 
-                Button(action: {
-                    // TODO: Implement checkout
-                }) {
+                NavigationLink(destination: CheckoutView(cartManager: cartManager, authViewModel: authViewModel)) {
                     Text("Proceed to Checkout")
                         .font(.headline)
                         .foregroundColor(.white)
