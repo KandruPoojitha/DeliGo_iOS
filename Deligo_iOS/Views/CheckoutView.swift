@@ -1,18 +1,21 @@
 import SwiftUI
 import FirebaseDatabase
 import StripePaymentSheet
+import GooglePlaces
 
 struct CheckoutView: View {
     @ObservedObject var cartManager: CartManager
     @ObservedObject var authViewModel: AuthViewModel
+    @StateObject private var locationSearchVM = LocationSearchViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var deliveryOption: DeliveryOption = DeliveryOption.delivery
     @State private var paymentMethod: PaymentMethod = PaymentMethod.card
     @State private var tipPercentage: Double = 15.0
-    @State private var deliveryAddress: String = ""
+    @State private var deliveryAddress = DeliveryAddress(streetAddress: "", unit: "", instructions: "")
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isProcessingPayment = false
+    @State private var showingSuggestions = false
     
     private let tipOptions: [Double] = [0, 10, 15, 20, 25]
     private let deliveryFee: Double = 4.99
@@ -39,27 +42,14 @@ struct CheckoutView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Order Items Section
                 orderItemsSection
-                
-                // Delivery Options Section
                 deliveryOptionsSection
-                
-                // Delivery Address (if delivery selected)
                 if deliveryOption == DeliveryOption.delivery {
                     deliveryAddressSection
                 }
-                
-                // Tip Section
                 tipSection
-                
-                // Payment Method Section
                 paymentMethodSection
-                
-                // Order Summary Section
                 orderSummarySection
-                
-                // Place Order Button
                 placeOrderButton
             }
             .padding()
@@ -122,24 +112,87 @@ struct CheckoutView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
-            
             Divider()
         }
     }
     
     private var deliveryAddressSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Delivery Address")
                 .font(.headline)
             
-            TextEditor(text: $deliveryAddress)
-                .frame(height: 100)
-                .padding(8)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
+            // Street Address with Suggestions
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Street Address")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                TextField("Enter your street address", text: $locationSearchVM.searchText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .onChange(of: locationSearchVM.searchText) { _ in
+                        showingSuggestions = !locationSearchVM.searchText.isEmpty
+                    }
+                
+                if showingSuggestions && !locationSearchVM.suggestions.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(locationSearchVM.suggestions) { suggestion in
+                                Button(action: {
+                                    locationSearchVM.selectLocation(suggestion)
+                                    deliveryAddress.streetAddress = suggestion.title
+                                    deliveryAddress.placeID = suggestion.placeID
+                                    locationSearchVM.searchText = suggestion.title
+                                    showingSuggestions = false
+                                }) {
+                                    VStack(alignment: .leading) {
+                                        Text(suggestion.title)
+                                            .font(.subheadline)
+                                        Text(suggestion.subtitle)
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                                Divider()
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemBackground))
+                        .cornerRadius(8)
+                        .shadow(radius: 4)
+                    }
+                    .frame(maxHeight: 200)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Unit/Apartment Number (Optional)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                TextField("Enter unit or apartment number", text: $deliveryAddress.unit)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Delivery Instructions (Optional)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                TextEditor(text: $deliveryAddress.instructions)
+                    .frame(height: 100)
+                    .padding(8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(.systemGray4), lineWidth: 1)
+                    )
+            }
             
             Divider()
         }
+        .padding(.horizontal)
     }
     
     private var tipSection: some View {
@@ -251,8 +304,9 @@ struct CheckoutView: View {
     }
     
     private var isValidOrder: Bool {
-        if deliveryOption == DeliveryOption.delivery && deliveryAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return false
+        if deliveryOption == DeliveryOption.delivery {
+            return !deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !cartManager.cartItems.isEmpty
         }
         return !cartManager.cartItems.isEmpty
     }
@@ -270,7 +324,7 @@ struct CheckoutView: View {
             return
         }
         
-        if deliveryOption == DeliveryOption.delivery && deliveryAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if deliveryOption == DeliveryOption.delivery && deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             alertMessage = "Error: Please provide a delivery address"
             showingAlert = true
             return
@@ -333,10 +387,19 @@ struct CheckoutView: View {
             "total": total,
             "deliveryOption": deliveryOption.rawValue,
             "paymentMethod": paymentMethod.rawValue,
-            "deliveryAddress": deliveryOption == DeliveryOption.delivery ? deliveryAddress : nil,
             "status": status,
             "createdAt": ServerValue.timestamp()
         ]
+        
+        if deliveryOption == DeliveryOption.delivery {
+            orderData["deliveryAddress"] = [
+                "streetAddress": deliveryAddress.streetAddress,
+                "unit": deliveryAddress.unit,
+                "instructions": deliveryAddress.instructions,
+                "latitude": locationSearchVM.selectedLocation?.coordinate.latitude,
+                "longitude": locationSearchVM.selectedLocation?.coordinate.longitude
+            ]
+        }
         
         if let paymentIntentId = paymentIntentId {
             orderData["paymentIntentId"] = paymentIntentId
@@ -369,7 +432,6 @@ struct CheckoutView: View {
                         return
                     }
                     
-                    // Clear cart after successful order
                     cartManager.clearCart()
                     alertMessage = "Order placed successfully!"
                     showingAlert = true
