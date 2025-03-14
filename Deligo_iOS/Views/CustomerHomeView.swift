@@ -20,10 +20,9 @@ struct Restaurant: Identifiable {
     var distance: Double?
     
     var location: CLLocation? {
-        // Only return nil if both latitude and longitude are exactly 0
-        // or if they are clearly invalid values
-        if (latitude == 0 && longitude == 0) || 
-           abs(latitude) > 90 || abs(longitude) > 180 {
+        // Accept any non-zero coordinates as valid
+        // Only return nil if coordinates are clearly invalid
+        if abs(latitude) > 90 || abs(longitude) > 180 {
             return nil
         }
         return CLLocation(latitude: latitude, longitude: longitude)
@@ -118,9 +117,9 @@ struct RestaurantRow: View {
     
     private func formatDistance(_ distance: Double) -> String {
         if distance < 1000 {
-            return String(format: "%.0f m", distance)
+            return "\(Int(round(distance)))m"
         } else {
-            return String(format: "%.1f km", distance / 1000)
+            return String(format: "%.1fkm", distance / 1000)
         }
     }
 }
@@ -157,19 +156,19 @@ struct MainCustomerView: View {
                     .cornerRadius(10)
                     .padding()
                     
-//                    // Location Status
-//                    if let location = locationManager.location {
-//                        HStack {
-//                            Image(systemName: "location.fill")
-//                                .foregroundColor(Color(hex: "F4A261"))
-//                            Text("Location found")
-//                                .font(.caption)
-//                                .foregroundColor(.gray)
-//                        }
-//                        .padding(.horizontal)
-//                        .padding(.bottom, 8)
-//                    }
-//                    
+                    // Location Status
+                    if let location = locationManager.location {
+                        HStack {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(Color(hex: "F4A261"))
+                            Text("Location found")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                    }
+                    
                     // Sort Options
                     HStack {
                         Text("Sort by:")
@@ -212,6 +211,11 @@ struct MainCustomerView: View {
                             }
                         }
                         .listStyle(PlainListStyle())
+                        .refreshable {
+                            // Manually refresh data
+                            locationManager.startUpdatingLocation()
+                            loadRestaurants()
+                        }
                     }
                 }
                 .navigationTitle("Restaurants")
@@ -256,14 +260,26 @@ struct MainCustomerView: View {
         }
         .accentColor(Color(hex: "F4A261"))
         .onAppear {
+            print("DEBUG: MainCustomerView appeared")
             locationManager.checkLocationAuthorization()
             loadRestaurants()
+            
+            // Add notification observer for location updates
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("LocationUpdated"),
+                object: nil,
+                queue: .main) { _ in
+                    print("DEBUG: Received location updated notification")
+                    updateDistances(for: restaurants)
+                }
         }
-        .onChange(of: locationManager.location) { _, _ in
+        .onChange(of: locationManager.location) { _, newLocation in
             // Recalculate distances when location updates
+            print("DEBUG: Location changed to: \(String(describing: newLocation?.coordinate))")
             updateDistances(for: restaurants)
         }
         .onChange(of: locationManager.authorizationStatus) { _, newStatus in
+            print("DEBUG: Authorization status changed to: \(newStatus.rawValue)")
             if newStatus == .authorizedWhenInUse || newStatus == .authorizedAlways {
                 locationManager.startUpdatingLocation()
             }
@@ -300,6 +316,7 @@ struct MainCustomerView: View {
                 guard let documents = dict["documents"] as? [String: Any],
                       let documentStatus = documents["status"] as? String,
                       documentStatus == "approved" else {
+                    print("DEBUG: Restaurant \(childSnapshot.key) not approved or missing documents")
                     continue
                 }
 
@@ -308,7 +325,7 @@ struct MainCustomerView: View {
                     continue
                 }
                 
-                // Get location data from the correct path
+                // Get location data from the "location" node as seen in Firebase
                 var latitude: Double = 0
                 var longitude: Double = 0
                 
@@ -348,6 +365,8 @@ struct MainCustomerView: View {
                 loadedRestaurants.append(restaurant)
             }
             
+            print("DEBUG: Loaded \(loadedRestaurants.count) valid restaurants")
+            
             DispatchQueue.main.async {
                 self.updateDistances(for: loadedRestaurants)
             }
@@ -365,17 +384,13 @@ struct MainCustomerView: View {
                     print("DEBUG: Calculating distance for \(restaurantsWithDistance[i].name)")
                     print("DEBUG: Restaurant location: \(restaurantLocation.coordinate.latitude), \(restaurantLocation.coordinate.longitude)")
                     
-                    // Use haversine formula for more accurate distance calculation
-                    let distance = calculateHaversineDistance(
-                        lat1: userLocation.coordinate.latitude,
-                        lon1: userLocation.coordinate.longitude,
-                        lat2: restaurantLocation.coordinate.latitude,
-                        lon2: restaurantLocation.coordinate.longitude
-                    )
+                    // Use direct CLLocation distance calculation for more accuracy
+                    let distance = userLocation.distance(from: restaurantLocation)
                     print("DEBUG: Calculated distance for \(restaurantsWithDistance[i].name): \(distance) meters")
                     restaurantsWithDistance[i].distance = distance
                 } else {
                     print("DEBUG: No valid location for restaurant: \(restaurantsWithDistance[i].name)")
+                    restaurantsWithDistance[i].distance = nil
                 }
             }
         } else {
@@ -385,25 +400,11 @@ struct MainCustomerView: View {
             }
         }
         
-        self.restaurants = restaurantsWithDistance
-        sortRestaurants()
-    }
-    
-    // Calculate distance using Haversine formula
-    private func calculateHaversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
-        let earthRadius = 6371000.0 // Earth radius in meters
-        
-        let dLat = (lat2 - lat1) * .pi / 180
-        let dLon = (lon2 - lon1) * .pi / 180
-        
-        let a = sin(dLat/2) * sin(dLat/2) +
-                cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180) *
-                sin(dLon/2) * sin(dLon/2)
-        
-        let c = 2 * atan2(sqrt(a), sqrt(1-a))
-        let distance = earthRadius * c
-        
-        return distance
+        DispatchQueue.main.async {
+            print("DEBUG: Updating UI with \(restaurantsWithDistance.count) restaurants")
+            self.restaurants = restaurantsWithDistance
+            self.sortRestaurants()
+        }
     }
     
     private func sortRestaurants() {
@@ -411,7 +412,7 @@ struct MainCustomerView: View {
         
         switch sortOption {
         case .distance:
-            sortedRestaurants.sort { 
+            sortedRestaurants.sort {
                 let dist1 = $0.distance ?? Double.infinity
                 let dist2 = $1.distance ?? Double.infinity
                 
@@ -424,7 +425,7 @@ struct MainCustomerView: View {
             }
             
         case .priceLowToHigh:
-            sortedRestaurants.sort { 
+            sortedRestaurants.sort {
                 let price1 = getPriceValue(from: $0.priceRange)
                 let price2 = getPriceValue(from: $1.priceRange)
                 
@@ -438,7 +439,7 @@ struct MainCustomerView: View {
             
         case .priceHighToLow:
             // Sort by price range (high to low)
-            sortedRestaurants.sort { 
+            sortedRestaurants.sort {
                 let price1 = getPriceValue(from: $0.priceRange)
                 let price2 = getPriceValue(from: $1.priceRange)
                 

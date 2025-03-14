@@ -4,6 +4,9 @@ import FirebaseDatabase
 struct CustomerMenuView: View {
     @State private var menuItems: [MenuItem] = []
     @State private var searchText = ""
+    @State private var openingHours: String?
+    @State private var closingHours: String?
+    @State private var isRestaurantOpen: Bool = false
     @ObservedObject var authViewModel: AuthViewModel
     let restaurant: Restaurant
     
@@ -41,12 +44,38 @@ struct CustomerMenuView: View {
                     }
                     .frame(height: 200)
                     .clipped()
+                } else {
+                    Color.gray.opacity(0.3)
+                        .frame(height: 200)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(restaurant.name)
                         .font(.title2)
                         .fontWeight(.bold)
+                    
+                    Text(restaurant.description)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 2)
+                    
+                    HStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(.red)
+                        Text(restaurant.address)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    if let opening = openingHours, let closing = closingHours {
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundColor(.gray)
+                            Text("\(opening) - \(closing)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                    }
                     
                     HStack {
                         Text(restaurant.cuisine)
@@ -68,22 +97,8 @@ struct CustomerMenuView: View {
                         Text(String(format: "%.1f", restaurant.rating))
                         Text("(\(restaurant.numberOfRatings))")
                             .foregroundColor(.gray)
-                        Text("•")
-                        Spacer()
                     }
                     .font(.subheadline)
-                    
-                    // Distance information
-                    if let distance = restaurant.distance {
-                        HStack {
-                            Image(systemName: "location.fill")
-                                .foregroundColor(.gray)
-                            Text(formatDistance(distance))
-                                .foregroundColor(.gray)
-                        }
-                        .font(.subheadline)
-                        .padding(.top, 2)
-                    }
                 }
                 .padding()
             }
@@ -160,6 +175,7 @@ struct CustomerMenuView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadMenuItems()
+            loadStoreHours()
         }
     }
     
@@ -215,6 +231,17 @@ struct CustomerMenuView: View {
             }
             
             self.menuItems = items
+        }
+    }
+    
+    private func loadStoreHours() {
+        let db = Database.database().reference()
+        db.child("restaurants").child(restaurant.id).child("hours").observeSingleEvent(of: .value) { snapshot in
+            if let value = snapshot.value as? [String: Any] {
+                self.openingHours = value["opening"] as? String
+                self.closingHours = value["closing"] as? String
+                self.isRestaurantOpen = value["isOpen"] as? Bool ?? false
+            }
         }
     }
     

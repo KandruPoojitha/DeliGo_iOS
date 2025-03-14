@@ -13,8 +13,17 @@ struct DriverDocumentsView: View {
     @State private var alertMessage = ""
     @State private var documentStatus: String = "not_submitted"
     
+    // Working Hours State
+    @State private var startHour = 9
+    @State private var startMinute = 0
+    @State private var endHour = 17
+    @State private var endMinute = 0
+    
     private let storage = Storage.storage().reference()
     private let database = Database.database().reference()
+    
+    private let hours = Array(0...23)
+    private let minutes = Array(0...59)
     
     var body: some View {
         Group {
@@ -102,6 +111,80 @@ struct DriverDocumentsView: View {
                         }
                         .padding(.horizontal)
                         
+                        // Working Hours Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Working Hours")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            
+                            // Start Time
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Start")
+                                    .foregroundColor(.gray)
+                                    .padding(.horizontal)
+                                
+                                HStack {
+                                    Picker("Hour", selection: $startHour) {
+                                        ForEach(hours, id: \.self) { hour in
+                                            Text("\(String(format: "%02d", hour))")
+                                                .tag(hour)
+                                        }
+                                    }
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 100)
+                                    .clipped()
+                                    
+                                    Text(":")
+                                        .font(.title2)
+                                        .foregroundColor(.gray)
+                                    
+                                    Picker("Minute", selection: $startMinute) {
+                                        ForEach(minutes, id: \.self) { minute in
+                                            Text("\(String(format: "%02d", minute))")
+                                                .tag(minute)
+                                        }
+                                    }
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 100)
+                                    .clipped()
+                                }
+                            }
+                            
+                            // End Time
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("End")
+                                    .foregroundColor(.gray)
+                                    .padding(.horizontal)
+                                
+                                HStack {
+                                    Picker("Hour", selection: $endHour) {
+                                        ForEach(hours, id: \.self) { hour in
+                                            Text("\(String(format: "%02d", hour))")
+                                                .tag(hour)
+                                        }
+                                    }
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 100)
+                                    .clipped()
+                                    
+                                    Text(":")
+                                        .font(.title2)
+                                        .foregroundColor(.gray)
+                                    
+                                    Picker("Minute", selection: $endMinute) {
+                                        ForEach(minutes, id: \.self) { minute in
+                                            Text("\(String(format: "%02d", minute))")
+                                                .tag(minute)
+                                        }
+                                    }
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 100)
+                                    .clipped()
+                                }
+                            }
+                        }
+                        .padding(.vertical)
+                        
                         // Submit Button
                         Button(action: submitDocuments) {
                             if isUploading {
@@ -166,6 +249,10 @@ struct DriverDocumentsView: View {
         var uploadError: Error?
         let timestamp = ServerValue.timestamp()
         
+        // Format working hours as separate "HH:MM" strings
+        let startTimeString = String(format: "%02d:%02d", startHour, startMinute)
+        let endTimeString = String(format: "%02d:%02d", endHour, endMinute)
+        
         // Upload Government ID
         group.enter()
         uploadImage(governmentID, path: "drivers/\(userId)/govt_id.jpg") { result in
@@ -198,7 +285,7 @@ struct DriverDocumentsView: View {
                 return
             }
             
-            // Update database with document URLs and status
+            // Update database with document URLs, status, and working hours
             let documentsData: [String: Any] = [
                 "documents": [
                     "govt_id": [
@@ -211,6 +298,10 @@ struct DriverDocumentsView: View {
                     ],
                     "status": "pending_review",
                     "updatedAt": timestamp
+                ],
+                "hours": [
+                    "start": startTimeString,
+                    "end": endTimeString
                 ],
                 "documentsSubmitted": true,
                 "createdAt": timestamp,
