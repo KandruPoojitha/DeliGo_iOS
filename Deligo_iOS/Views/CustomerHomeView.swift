@@ -20,10 +20,13 @@ struct Restaurant: Identifiable {
     var distance: Double?
     
     var location: CLLocation? {
-        if latitude != 0 && longitude != 0 {
-            return CLLocation(latitude: latitude, longitude: longitude)
+        // Only return nil if both latitude and longitude are exactly 0
+        // or if they are clearly invalid values
+        if (latitude == 0 && longitude == 0) || 
+           abs(latitude) > 90 || abs(longitude) > 180 {
+            return nil
         }
-        return nil
+        return CLLocation(latitude: latitude, longitude: longitude)
     }
 }
 
@@ -80,12 +83,16 @@ struct RestaurantRow: View {
                         .foregroundColor(.gray)
                 }
                 
-                if let distance = restaurant.distance {
-                    HStack(spacing: 2) {
-                        Image(systemName: "location.fill")
+                HStack(spacing: 2) {
+                    Image(systemName: "location.fill")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    if let distance = restaurant.distance {
+                        Text(formatDistance(distance))
                             .font(.caption)
                             .foregroundColor(.gray)
-                        Text(formatDistance(distance))
+                    } else {
+                        Text("Distance unavailable")
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
@@ -111,9 +118,9 @@ struct RestaurantRow: View {
     
     private func formatDistance(_ distance: Double) -> String {
         if distance < 1000 {
-            return String(format: "%.0f meters away", distance)
+            return String(format: "%.0f m", distance)
         } else {
-            return String(format: "%.1f km away", distance / 1000)
+            return String(format: "%.1f km", distance / 1000)
         }
     }
 }
@@ -150,19 +157,19 @@ struct MainCustomerView: View {
                     .cornerRadius(10)
                     .padding()
                     
-                    // Location indicator
+//                    // Location Status
 //                    if let location = locationManager.location {
 //                        HStack {
 //                            Image(systemName: "location.fill")
 //                                .foregroundColor(Color(hex: "F4A261"))
-//                            Text("Your location: \(location.coordinate.latitude.formatted()), \(location.coordinate.longitude.formatted())")
+//                            Text("Location found")
 //                                .font(.caption)
 //                                .foregroundColor(.gray)
 //                        }
 //                        .padding(.horizontal)
 //                        .padding(.bottom, 8)
 //                    }
-                    
+//                    
                     // Sort Options
                     HStack {
                         Text("Sort by:")
@@ -249,9 +256,17 @@ struct MainCustomerView: View {
         }
         .accentColor(Color(hex: "F4A261"))
         .onAppear {
-            locationManager.requestLocationPermission()
-            locationManager.startUpdatingLocation()
+            locationManager.checkLocationAuthorization()
             loadRestaurants()
+        }
+        .onChange(of: locationManager.location) { _, _ in
+            // Recalculate distances when location updates
+            updateDistances(for: restaurants)
+        }
+        .onChange(of: locationManager.authorizationStatus) { _, newStatus in
+            if newStatus == .authorizedWhenInUse || newStatus == .authorizedAlways {
+                locationManager.startUpdatingLocation()
+            }
         }
     }
     
@@ -281,24 +296,10 @@ struct MainCustomerView: View {
                     continue
                 }
 
-                print("DEBUG: Processing restaurant with ID: \(childSnapshot.key)")
-
-                if let documents = dict["documents"] as? [String: Any] {
-                    print("DEBUG: Found documents node")
-                    if let documentStatus = documents["status"] as? String {
-                        print("DEBUG: Found document status -> \(documentStatus)")
-                    } else {
-                        print("DEBUG: Missing status in documents")
-                    }
-                } else {
-                    print("DEBUG: Missing documents node")
-                }
-
                 // Corrected path to check document status
                 guard let documents = dict["documents"] as? [String: Any],
                       let documentStatus = documents["status"] as? String,
                       documentStatus == "approved" else {
-                    print("DEBUG: Restaurant not approved or missing document status")
                     continue
                 }
 
@@ -307,13 +308,16 @@ struct MainCustomerView: View {
                     continue
                 }
                 
-                // Get location data
+                // Get location data from the correct path
                 var latitude: Double = 0
                 var longitude: Double = 0
                 
                 if let location = dict["location"] as? [String: Any] {
                     latitude = location["latitude"] as? Double ?? 0
                     longitude = location["longitude"] as? Double ?? 0
+                    print("DEBUG: Found location data for restaurant \(storeInfo["name"] ?? ""): lat=\(latitude), lon=\(longitude)")
+                } else {
+                    print("DEBUG: No location data found for restaurant: \(storeInfo["name"] ?? "")")
                 }
 
                 let restaurant = Restaurant(
@@ -334,8 +338,14 @@ struct MainCustomerView: View {
                     distance: nil
                 )
 
+                // Debug print restaurant location
+                if let loc = restaurant.location {
+                    print("DEBUG: Restaurant \(restaurant.name) has valid location: \(loc.coordinate.latitude), \(loc.coordinate.longitude)")
+                } else {
+                    print("DEBUG: Restaurant \(restaurant.name) has no valid location")
+                }
+
                 loadedRestaurants.append(restaurant)
-                print("DEBUG: Added restaurant to loaded list: \(restaurant.name)")
             }
             
             DispatchQueue.main.async {
@@ -345,11 +355,16 @@ struct MainCustomerView: View {
     }
     
     private func updateDistances(for restaurants: [Restaurant]) {
+        print("DEBUG: Updating distances with location: \(String(describing: locationManager.location))")
         var restaurantsWithDistance = restaurants
         
         if let userLocation = locationManager.location {
+            print("DEBUG: User location found: \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
             for i in 0..<restaurantsWithDistance.count {
                 if let restaurantLocation = restaurantsWithDistance[i].location {
+                    print("DEBUG: Calculating distance for \(restaurantsWithDistance[i].name)")
+                    print("DEBUG: Restaurant location: \(restaurantLocation.coordinate.latitude), \(restaurantLocation.coordinate.longitude)")
+                    
                     // Use haversine formula for more accurate distance calculation
                     let distance = calculateHaversineDistance(
                         lat1: userLocation.coordinate.latitude,
@@ -357,10 +372,14 @@ struct MainCustomerView: View {
                         lat2: restaurantLocation.coordinate.latitude,
                         lon2: restaurantLocation.coordinate.longitude
                     )
+                    print("DEBUG: Calculated distance for \(restaurantsWithDistance[i].name): \(distance) meters")
                     restaurantsWithDistance[i].distance = distance
+                } else {
+                    print("DEBUG: No valid location for restaurant: \(restaurantsWithDistance[i].name)")
                 }
             }
         } else {
+            print("DEBUG: No user location available")
             for i in 0..<restaurantsWithDistance.count {
                 restaurantsWithDistance[i].distance = nil
             }
