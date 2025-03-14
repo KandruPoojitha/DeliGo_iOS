@@ -161,29 +161,29 @@ struct MainCustomerView: View {
                     .padding()
                     
                     // Location Status
-//                    HStack {
-//                        Image(systemName: locationManager.location != nil ? "location.fill" : "location.slash.fill")
-//                            .foregroundColor(locationManager.location != nil ? Color(hex: "F4A261") : .red)
-//                        if let location = locationManager.location {
-//                            Text("Location found")
-//                                .font(.caption)
-//                                .foregroundColor(.gray)
-//                        } else if let error = locationManager.locationError {
-//                            Text(error)
-//                                .font(.caption)
-//                                .foregroundColor(.red)
-//                                .onTapGesture {
-//                                    showingLocationAlert = true
-//                                }
-//                        } else {
-//                            Text("Waiting for location...")
-//                                .font(.caption)
-//                                .foregroundColor(.gray)
-//                        }
-//                    }
-//                    .padding(.horizontal)
-//                    .padding(.bottom, 8)
-//                    
+                    HStack {
+                        Image(systemName: locationManager.location != nil ? "location.fill" : "location.slash.fill")
+                            .foregroundColor(locationManager.location != nil ? Color(hex: "F4A261") : .red)
+                        if let location = locationManager.location {
+                            Text("Location found")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        } else if let error = locationManager.locationError {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .onTapGesture {
+                                    showingLocationAlert = true
+                                }
+                        } else {
+                            Text("Waiting for location...")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    
                     // Sort Options
                     HStack {
                         Text("Sort by:")
