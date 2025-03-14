@@ -20,12 +20,15 @@ struct Restaurant: Identifiable {
     var distance: Double?
     
     var location: CLLocation? {
-        // Accept any non-zero coordinates as valid
-        // Only return nil if coordinates are clearly invalid
-        if abs(latitude) > 90 || abs(longitude) > 180 {
+        // More lenient validation - only return nil if coordinates are clearly invalid
+        if latitude == 0 && longitude == 0 {
             return nil
         }
-        return CLLocation(latitude: latitude, longitude: longitude)
+        // Validate coordinates are within reasonable bounds
+        if abs(latitude) <= 90 && abs(longitude) <= 180 {
+            return CLLocation(latitude: latitude, longitude: longitude)
+        }
+        return nil
     }
 }
 
@@ -131,6 +134,7 @@ struct MainCustomerView: View {
     @State private var selectedTab = 0
     @State private var restaurants: [Restaurant] = []
     @State private var sortOption: SortOption = .distance
+    @State private var showingLocationAlert = false
     
     enum SortOption: String, CaseIterable, Identifiable {
         case distance = "Distance"
@@ -157,18 +161,29 @@ struct MainCustomerView: View {
                     .padding()
                     
                     // Location Status
-                    if let location = locationManager.location {
-                        HStack {
-                            Image(systemName: "location.fill")
-                                .foregroundColor(Color(hex: "F4A261"))
-                            Text("Location found")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
-                    }
-                    
+//                    HStack {
+//                        Image(systemName: locationManager.location != nil ? "location.fill" : "location.slash.fill")
+//                            .foregroundColor(locationManager.location != nil ? Color(hex: "F4A261") : .red)
+//                        if let location = locationManager.location {
+//                            Text("Location found")
+//                                .font(.caption)
+//                                .foregroundColor(.gray)
+//                        } else if let error = locationManager.locationError {
+//                            Text(error)
+//                                .font(.caption)
+//                                .foregroundColor(.red)
+//                                .onTapGesture {
+//                                    showingLocationAlert = true
+//                                }
+//                        } else {
+//                            Text("Waiting for location...")
+//                                .font(.caption)
+//                                .foregroundColor(.gray)
+//                        }
+//                    }
+//                    .padding(.horizontal)
+//                    .padding(.bottom, 8)
+//                    
                     // Sort Options
                     HStack {
                         Text("Sort by:")
@@ -219,6 +234,16 @@ struct MainCustomerView: View {
                     }
                 }
                 .navigationTitle("Restaurants")
+                .alert("Location Services Required", isPresented: $showingLocationAlert) {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Please enable location services in your device settings to see restaurant distances.")
+                }
             }
             .tabItem {
                 Image(systemName: "house.fill")
@@ -325,7 +350,7 @@ struct MainCustomerView: View {
                     continue
                 }
                 
-                // Get location data from the "location" node as seen in Firebase
+                // Get location data from the "location" node
                 var latitude: Double = 0
                 var longitude: Double = 0
                 
@@ -384,8 +409,8 @@ struct MainCustomerView: View {
                     print("DEBUG: Calculating distance for \(restaurantsWithDistance[i].name)")
                     print("DEBUG: Restaurant location: \(restaurantLocation.coordinate.latitude), \(restaurantLocation.coordinate.longitude)")
                     
-                    // Use direct CLLocation distance calculation for more accuracy
-                    let distance = userLocation.distance(from: restaurantLocation)
+                    // Calculate distance and round to nearest meter
+                    let distance = round(userLocation.distance(from: restaurantLocation))
                     print("DEBUG: Calculated distance for \(restaurantsWithDistance[i].name): \(distance) meters")
                     restaurantsWithDistance[i].distance = distance
                 } else {
@@ -395,6 +420,8 @@ struct MainCustomerView: View {
             }
         } else {
             print("DEBUG: No user location available")
+            // Request location update if not available
+            locationManager.startUpdatingLocation()
             for i in 0..<restaurantsWithDistance.count {
                 restaurantsWithDistance[i].distance = nil
             }
