@@ -18,24 +18,9 @@ class CustomLocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     
     func checkLocationAuthorization() {
         print("DEBUG: Checking location authorization")
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            print("DEBUG: Location authorization not determined, requesting permission")
-            locationManager.requestWhenInUseAuthorization()
-        case .restricted, .denied:
-            print("DEBUG: Location access denied or restricted")
-            DispatchQueue.main.async {
-                self.locationError = "Location access denied. Please enable location services in Settings to see restaurant distances."
-            }
-        case .authorizedWhenInUse, .authorizedAlways:
-            print("DEBUG: Location access authorized, starting updates")
-            startUpdatingLocation()
-        @unknown default:
-            print("DEBUG: Unknown location authorization status")
-            DispatchQueue.main.async {
-                self.locationError = "Unknown location authorization status"
-            }
-        }
+        // Instead of directly requesting authorization, just check the current status
+        // and let the delegate method handle the request if needed
+        authorizationStatus = locationManager.authorizationStatus
     }
     
     func startUpdatingLocation() {
@@ -63,7 +48,22 @@ class CustomLocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         print("DEBUG: Location authorization changed to: \(manager.authorizationStatus.rawValue)")
         DispatchQueue.main.async {
             self.authorizationStatus = manager.authorizationStatus
-            self.checkLocationAuthorization()
+            
+            switch manager.authorizationStatus {
+            case .notDetermined:
+                print("DEBUG: Location authorization not determined, requesting permission")
+                // Request authorization here, after the callback
+                manager.requestWhenInUseAuthorization()
+            case .restricted, .denied:
+                print("DEBUG: Location access denied or restricted")
+                self.locationError = "Location access denied. Please enable location services in Settings to see restaurant distances."
+            case .authorizedWhenInUse, .authorizedAlways:
+                print("DEBUG: Location access authorized, starting updates")
+                self.startUpdatingLocation()
+            @unknown default:
+                print("DEBUG: Unknown location authorization status")
+                self.locationError = "Unknown location authorization status"
+            }
         }
     }
     

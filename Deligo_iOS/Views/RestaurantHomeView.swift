@@ -8,6 +8,7 @@ struct RestaurantHomeView: View {
     @State private var selectedOrderTab = 0
     @State private var isRestaurantOpen = false
     @State private var restaurant: Restaurant?
+    private let database = Database.database().reference()
     
     var body: some View {
         Group {
@@ -28,34 +29,6 @@ struct RestaurantHomeView: View {
                         .multilineTextAlignment(.center)
                         .foregroundColor(.gray)
                         .padding(.horizontal)
-                }
-                .padding()
-            case .rejected:
-                VStack(spacing: 20) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.red)
-                    
-                    Text("Documents Rejected")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Your documents were rejected. Please submit new documents.")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal)
-                    
-                    Button(action: {
-                        authViewModel.documentStatus = .notSubmitted
-                    }) {
-                        Text("Submit New Documents")
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(hex: "F4A261"))
-                            .cornerRadius(12)
-                    }
                 }
                 .padding()
             case .approved:
@@ -93,6 +66,51 @@ struct RestaurantHomeView: View {
                             loadRestaurantData()
                         }
                 }
+            case .rejected:
+                VStack(spacing: 20) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.red)
+                    
+                    Text("Documents Rejected")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Your documents have been rejected. Please review the requirements and submit again.")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal)
+                    
+                    Button(action: {
+                        // Reset document status to notSubmitted
+                        if let userId = authViewModel.currentUserId {
+                            database.child("restaurants").child(userId).child("documents").updateChildValues([
+                                "status": "notSubmitted"
+                            ])
+                        }
+                    }) {
+                        Text("Submit Again")
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 24)
+                            .background(Color(hex: "F4A261"))
+                            .cornerRadius(8)
+                    }
+                }
+                .padding()
+            }
+        }
+        .onAppear {
+            // Set up real-time listener for isOpen status
+            if let userId = authViewModel.currentUserId {
+                database.child("restaurants").child(userId).child("isOpen").observe(.value) { snapshot in
+                    if let isOpen = snapshot.value as? Bool {
+                        DispatchQueue.main.async {
+                            self.isRestaurantOpen = isOpen
+                        }
+                    }
+                }
             }
         }
         .onChange(of: isRestaurantOpen) { oldValue, newValue in
@@ -101,81 +119,56 @@ struct RestaurantHomeView: View {
     }
     
     private func loadRestaurantData() {
-        guard let userId = authViewModel.currentUserId else {
-            print("DEBUG: No user ID found")
-            return
-        }
-        
+        guard let userId = authViewModel.currentUserId else { return }
         let db = Database.database().reference()
         
-        // First check if this user is a restaurant
-        db.child("restaurants").child(userId).child("role").observeSingleEvent(of: .value) { snapshot in
-            guard let role = snapshot.value as? String,
-                  role == "Restaurant" else {
-                print("DEBUG: User is not a restaurant. Role: \(snapshot.value as? String ?? "nil")")
+        db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot in
+            guard let dict = snapshot.value as? [String: Any],
+                  let storeInfo = dict["store_info"] as? [String: Any] else {
+                print("DEBUG: Failed to load restaurant data")
                 return
             }
             
-            // Now load the restaurant data
-            db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot in
-                print("DEBUG: Checking restaurant data for userId: \(userId)")
-                guard let dict = snapshot.value as? [String: Any] else {
-                    print("DEBUG: Could not parse restaurant data")
-                    return
+            // Get the current isOpen status
+            if let isOpen = dict["isOpen"] as? Bool {
+                DispatchQueue.main.async {
+                    self.isRestaurantOpen = isOpen
                 }
-                
-                // Check documents/status path
-                guard let documents = dict["documents"] as? [String: Any],
-                      let status = documents["status"] as? String else {
-                    print("DEBUG: Could not find status in documents/status path")
-                    return
-                }
-                
-                print("DEBUG: Found status: \(status)")
-                
-                guard status == "approved" else {
-                    print("DEBUG: Restaurant not approved. Status: \(status)")
-                    return
-                }
-                
-                guard let storeInfo = dict["store_info"] as? [String: Any] else {
-                    print("DEBUG: Missing store info")
-                    return
-                }
-                
-                print("DEBUG: Found approved restaurant with name: \(storeInfo["name"] as? String ?? "unknown")")
-                
-                self.restaurant = Restaurant(
-                    id: userId,
-                    name: storeInfo["name"] as? String ?? "",
-                    description: storeInfo["description"] as? String ?? "",
-                    email: storeInfo["email"] as? String ?? "",
-                    phone: storeInfo["phone"] as? String ?? "",
-                    cuisine: storeInfo["cuisine"] as? String ?? "Various",
-                    priceRange: storeInfo["priceRange"] as? String ?? "$",
-                    rating: dict["rating"] as? Double ?? 0.0,
-                    numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
-                    address: storeInfo["address"] as? String ?? "",
-                    imageURL: storeInfo["imageURL"] as? String,
-                    isOpen: dict["isOpen"] as? Bool ?? false,
-                    latitude: (dict["location"] as? [String: Any])?["latitude"] as? Double ?? 0,
-                    longitude: (dict["location"] as? [String: Any])?["longitude"] as? Double ?? 0,
-                    distance: nil
-                )
-                print("DEBUG: Successfully loaded restaurant data")
             }
+            
+            self.restaurant = Restaurant(
+                id: userId,
+                name: storeInfo["name"] as? String ?? "",
+                description: storeInfo["description"] as? String ?? "",
+                email: storeInfo["email"] as? String ?? "",
+                phone: storeInfo["phone"] as? String ?? "",
+                cuisine: storeInfo["cuisine"] as? String ?? "Various",
+                priceRange: storeInfo["priceRange"] as? String ?? "$",
+                rating: dict["rating"] as? Double ?? 0.0,
+                numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
+                address: storeInfo["address"] as? String ?? "",
+                imageURL: storeInfo["imageURL"] as? String,
+                isOpen: dict["isOpen"] as? Bool ?? false,
+                latitude: (dict["location"] as? [String: Any])?["latitude"] as? Double ?? 0,
+                longitude: (dict["location"] as? [String: Any])?["longitude"] as? Double ?? 0,
+                distance: nil
+            )
+            print("DEBUG: Successfully loaded restaurant data")
         }
     }
     
     private func updateRestaurantStatus(isOpen: Bool) {
         guard let userId = authViewModel.currentUserId else { return }
-        let db = Database.database().reference()
         
-        db.child("restaurants").child(userId).updateChildValues([
+        print("DEBUG: Updating restaurant status to: \(isOpen)")
+        
+        database.child("restaurants").child(userId).updateChildValues([
             "isOpen": isOpen
         ]) { error, _ in
             if let error = error {
                 print("Error updating restaurant status: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: Successfully updated restaurant status")
             }
         }
     }
@@ -205,7 +198,7 @@ struct OrdersTabView: View {
                     
                     // Restaurant Open/Close Toggle
                     Toggle("", isOn: $isRestaurantOpen)
-                        .toggleStyle(SwitchToggleStyle(tint: isRestaurantOpen ? .green : .red))
+                        .toggleStyle(SwitchToggleStyle(tint: Color(hex: "F4A261")))
                         .frame(width: 51) // Standard iOS toggle width
                 }
                 .padding(.horizontal)

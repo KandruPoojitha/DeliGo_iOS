@@ -129,8 +129,8 @@ struct CheckoutView: View {
                 
                 TextField("Enter your street address", text: $locationSearchVM.searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onChange(of: locationSearchVM.searchText) { _ in
-                        showingSuggestions = !locationSearchVM.searchText.isEmpty
+                    .onChange(of: locationSearchVM.searchText) { oldValue, newValue in
+                        showingSuggestions = !newValue.isEmpty
                     }
                 
                 if showingSuggestions && !locationSearchVM.suggestions.isEmpty {

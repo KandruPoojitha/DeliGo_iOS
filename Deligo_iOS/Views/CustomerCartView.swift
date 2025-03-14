@@ -44,8 +44,8 @@ struct CustomerCartView: View {
             } message: {
                 Text("Are you sure you want to clear your cart?")
             }
-            .onChange(of: cartManager.cartItems) { items in
-                print("Cart items updated. Count: \(items.count)")
+            .onChange(of: cartManager.cartItems) { oldItems, newItems in
+                print("Cart items updated. Count: \(newItems.count)")
             }
         }
     }
