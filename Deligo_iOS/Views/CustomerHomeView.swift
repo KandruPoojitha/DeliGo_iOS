@@ -20,49 +20,10 @@ struct Restaurant: Identifiable {
     var distance: Double?
     
     var location: CLLocation? {
-        // Validate coordinates are within Ottawa area (approximately)
-        let ottawaMinLat = 45.0
-        let ottawaMaxLat = 45.8
-        let ottawaMinLon = -76.0
-        let ottawaMaxLon = -75.0
-        
-        if latitude >= ottawaMinLat && latitude <= ottawaMaxLat &&
-           longitude >= ottawaMinLon && longitude <= ottawaMaxLon {
-            print("""
-                DEBUG: Valid Ottawa coordinates for \(name):
-                - Latitude: \(latitude)
-                - Longitude: \(longitude)
-                """)
+        if latitude != 0 && longitude != 0 {
             return CLLocation(latitude: latitude, longitude: longitude)
         }
-        print("""
-            DEBUG: Coordinates outside Ottawa area for \(name):
-            - Latitude: \(latitude)
-            - Longitude: \(longitude)
-            - Expected range: lat [45.0, 45.8], lon [-76.0, -75.0]
-            """)
         return nil
-    }
-    
-    func calculateDistance(from userLocation: CLLocation) -> Double? {
-        guard let restaurantLocation = location else { return nil }
-        
-        // Use direct CLLocation distance calculation
-        let distance = userLocation.distance(from: restaurantLocation)
-        print("""
-            DEBUG: Distance calculation for \(name):
-            - User: (\(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude))
-            - Restaurant: (\(latitude), \(longitude))
-            - Raw distance: \(distance)m (\(distance/1000.0)km)
-            """)
-        return distance
-    }
-}
-
-// Add extension for degree to radian conversion
-extension Double {
-    var degreesToRadians: Double {
-        return self * .pi / 180
     }
 }
 
@@ -150,16 +111,9 @@ struct RestaurantRow: View {
     
     private func formatDistance(_ distance: Double) -> String {
         if distance < 1000 {
-            return String(format: "%.0f m away", distance)
+            return String(format: "%.0f meters away", distance)
         } else {
-            let kilometers = distance / 1000.0
-            if kilometers < 100 {
-                // For distances under 100 km, show one decimal place
-                return String(format: "%.1f km away", kilometers)
-            } else {
-                // For longer distances, show no decimal places
-                return String(format: "%.0f km away", kilometers)
-            }
+            return String(format: "%.1f km away", distance / 1000)
         }
     }
 }
@@ -196,18 +150,18 @@ struct MainCustomerView: View {
                     .cornerRadius(10)
                     .padding()
                     
-                    // Location indicator (uncomment for debugging)
-                    if let location = locationManager.location {
-                        HStack {
-                            Image(systemName: "location.fill")
-                                .foregroundColor(Color(hex: "F4A261"))
-                            Text("Your location: (\(location.coordinate.latitude), \(location.coordinate.longitude))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
-                    }
+                    // Location indicator
+//                    if let location = locationManager.location {
+//                        HStack {
+//                            Image(systemName: "location.fill")
+//                                .foregroundColor(Color(hex: "F4A261"))
+//                            Text("Your location: \(location.coordinate.latitude.formatted()), \(location.coordinate.longitude.formatted())")
+//                                .font(.caption)
+//                                .foregroundColor(.gray)
+//                        }
+//                        .padding(.horizontal)
+//                        .padding(.bottom, 8)
+//                    }
                     
                     // Sort Options
                     HStack {
@@ -299,13 +253,6 @@ struct MainCustomerView: View {
             locationManager.startUpdatingLocation()
             loadRestaurants()
         }
-        .onChange(of: locationManager.location) { _, newLocation in
-            print("DEBUG: Location changed in view - updating distances")
-            if let location = newLocation {
-                print("DEBUG: New location available: (\(location.coordinate.latitude), \(location.coordinate.longitude))")
-                updateDistances(for: restaurants)
-            }
-        }
     }
     
     private var filteredRestaurants: [Restaurant] {
@@ -334,6 +281,19 @@ struct MainCustomerView: View {
                     continue
                 }
 
+                print("DEBUG: Processing restaurant with ID: \(childSnapshot.key)")
+
+                if let documents = dict["documents"] as? [String: Any] {
+                    print("DEBUG: Found documents node")
+                    if let documentStatus = documents["status"] as? String {
+                        print("DEBUG: Found document status -> \(documentStatus)")
+                    } else {
+                        print("DEBUG: Missing status in documents")
+                    }
+                } else {
+                    print("DEBUG: Missing documents node")
+                }
+
                 // Corrected path to check document status
                 guard let documents = dict["documents"] as? [String: Any],
                       let documentStatus = documents["status"] as? String,
@@ -347,19 +307,13 @@ struct MainCustomerView: View {
                     continue
                 }
                 
-                // Get and validate location data
+                // Get location data
                 var latitude: Double = 0
                 var longitude: Double = 0
                 
-                if let location = dict["location"] as? [String: Any],
-                   let lat = location["latitude"] as? Double,
-                   let lon = location["longitude"] as? Double,
-                   lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 {
-                    latitude = lat
-                    longitude = lon
-                    print("DEBUG: Valid coordinates found for \(storeInfo["name"] as? String ?? "") - lat: \(latitude), lon: \(longitude)")
-                } else {
-                    print("DEBUG: Invalid or missing coordinates for restaurant: \(childSnapshot.key)")
+                if let location = dict["location"] as? [String: Any] {
+                    latitude = location["latitude"] as? Double ?? 0
+                    longitude = location["longitude"] as? Double ?? 0
                 }
 
                 let restaurant = Restaurant(
@@ -381,7 +335,7 @@ struct MainCustomerView: View {
                 )
 
                 loadedRestaurants.append(restaurant)
-                print("DEBUG: Added restaurant to loaded list: \(restaurant.name) with coordinates: (\(latitude), \(longitude))")
+                print("DEBUG: Added restaurant to loaded list: \(restaurant.name)")
             }
             
             DispatchQueue.main.async {
@@ -391,72 +345,49 @@ struct MainCustomerView: View {
     }
     
     private func updateDistances(for restaurants: [Restaurant]) {
-        print("DEBUG: Starting distance updates for \(restaurants.count) restaurants")
         var restaurantsWithDistance = restaurants
         
         if let userLocation = locationManager.location {
-            print("""
-                DEBUG: Updating distances with user location:
-                - User coordinates: (\(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude))
-                - User accuracy: \(userLocation.horizontalAccuracy)m
-                - Location timestamp: \(userLocation.timestamp)
-                - Is simulator: \(isSimulator())
-                """)
-            
-            // Check if user location is reasonable for Ottawa area
-            let ottawaMinLat = 45.0
-            let ottawaMaxLat = 45.8
-            let ottawaMinLon = -76.0
-            let ottawaMaxLon = -75.0
-            
-            let isInOttawa = userLocation.coordinate.latitude >= ottawaMinLat &&
-                            userLocation.coordinate.latitude <= ottawaMaxLat &&
-                            userLocation.coordinate.longitude >= ottawaMinLon &&
-                            userLocation.coordinate.longitude <= ottawaMaxLon
-            
-            if !isInOttawa {
-                print("""
-                    DEBUG: ⚠️ User location is outside Ottawa area:
-                    - Current: (\(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude))
-                    - Expected: lat [45.0, 45.8], lon [-76.0, -75.0]
-                    - Please set simulator location to Ottawa area
-                    """)
-            }
-            
             for i in 0..<restaurantsWithDistance.count {
-                let restaurant = restaurantsWithDistance[i]
-                if let distance = restaurant.calculateDistance(from: userLocation) {
+                if let restaurantLocation = restaurantsWithDistance[i].location {
+                    // Use haversine formula for more accurate distance calculation
+                    let distance = calculateHaversineDistance(
+                        lat1: userLocation.coordinate.latitude,
+                        lon1: userLocation.coordinate.longitude,
+                        lat2: restaurantLocation.coordinate.latitude,
+                        lon2: restaurantLocation.coordinate.longitude
+                    )
                     restaurantsWithDistance[i].distance = distance
-                    print("""
-                        DEBUG: Distance calculation successful for \(restaurant.name):
-                        - Distance: \(formatDistance(distance))
-                        """)
                 }
             }
-            
-            print("DEBUG: Finished calculating distances, updating restaurants array")
-            DispatchQueue.main.async {
-                self.restaurants = restaurantsWithDistance
-                self.sortRestaurants()
-            }
         } else {
-            print("DEBUG: No user location available - Location services might be disabled")
-            DispatchQueue.main.async {
-                self.restaurants = restaurantsWithDistance
+            for i in 0..<restaurantsWithDistance.count {
+                restaurantsWithDistance[i].distance = nil
             }
         }
+        
+        self.restaurants = restaurantsWithDistance
+        sortRestaurants()
     }
     
-    private func isSimulator() -> Bool {
-        #if targetEnvironment(simulator)
-        return true
-        #else
-        return false
-        #endif
+    // Calculate distance using Haversine formula
+    private func calculateHaversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
+        let earthRadius = 6371000.0 // Earth radius in meters
+        
+        let dLat = (lat2 - lat1) * .pi / 180
+        let dLon = (lon2 - lon1) * .pi / 180
+        
+        let a = sin(dLat/2) * sin(dLat/2) +
+                cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180) *
+                sin(dLon/2) * sin(dLon/2)
+        
+        let c = 2 * atan2(sqrt(a), sqrt(1-a))
+        let distance = earthRadius * c
+        
+        return distance
     }
     
     private func sortRestaurants() {
-        print("DEBUG: Sorting restaurants by \(sortOption)")
         var sortedRestaurants = restaurants
         
         switch sortOption {
@@ -487,6 +418,7 @@ struct MainCustomerView: View {
             }
             
         case .priceHighToLow:
+            // Sort by price range (high to low)
             sortedRestaurants.sort { 
                 let price1 = getPriceValue(from: $0.priceRange)
                 let price2 = getPriceValue(from: $1.priceRange)
@@ -496,35 +428,12 @@ struct MainCustomerView: View {
                     return $0.name < $1.name
                 }
                 
-                return price2 < price1
-            }
-        }
-        
-        print("DEBUG: Sorted restaurants:")
-        for restaurant in sortedRestaurants {
-            if let distance = restaurant.distance {
-                print("DEBUG: \(restaurant.name) - \(formatDistance(distance))")
-            } else {
-                print("DEBUG: \(restaurant.name) - No distance available")
+                return price1 > price2
             }
         }
         
         self.restaurants = sortedRestaurants
-    }
-    
-    private func formatDistance(_ distance: Double) -> String {
-        if distance < 1000 {
-            return String(format: "%.0f m away", distance)
-        } else {
-            let kilometers = distance / 1000.0
-            if kilometers < 100 {
-                // For distances under 100 km, show one decimal place
-                return String(format: "%.1f km away", kilometers)
-            } else {
-                // For longer distances, show no decimal places
-                return String(format: "%.0f km away", kilometers)
-            }
-        }
+        print("DEBUG: Sorted restaurants by \(sortOption.rawValue)")
     }
     
     private func getPriceValue(from priceRange: String) -> Int {

@@ -367,18 +367,44 @@ struct CheckoutView: View {
             "userId": userId,
             "restaurantId": cartManager.cartItems.first?.menuItemId ?? "",
             "items": cartManager.cartItems.map { item in
-                [
+                var itemDict: [String: Any] = [
                     "id": item.id,
                     "menuItemId": item.menuItemId,
                     "name": item.name,
                     "description": item.description,
                     "price": item.price,
-                    "imageURL": item.imageURL as Any,
                     "quantity": item.quantity,
-                    "customizations": item.customizations,
                     "specialInstructions": item.specialInstructions,
                     "totalPrice": item.totalPrice
                 ]
+                
+                if let imageURL = item.imageURL {
+                    itemDict["imageURL"] = imageURL
+                }
+                
+                // Convert customizations to compatible format
+                var convertedCustomizations: [String: [[String: Any]]] = [:]
+                for (key, selections) in item.customizations {
+                    convertedCustomizations[key] = selections.map { selection in
+                        var selectionDict: [String: Any] = [
+                            "optionId": selection.optionId,
+                            "optionName": selection.optionName
+                        ]
+                        
+                        selectionDict["selectedItems"] = selection.selectedItems.map { item in
+                            return [
+                                "id": item.id,
+                                "name": item.name,
+                                "price": item.price
+                            ]
+                        }
+                        
+                        return selectionDict
+                    }
+                }
+                
+                itemDict["customizations"] = convertedCustomizations
+                return itemDict
             },
             "subtotal": subtotal,
             "tipPercentage": tipPercentage,
@@ -392,13 +418,15 @@ struct CheckoutView: View {
         ]
         
         if deliveryOption == DeliveryOption.delivery {
-            orderData["deliveryAddress"] = [
-                "streetAddress": deliveryAddress.streetAddress,
+            orderData["address"] = [
+                "street": deliveryAddress.streetAddress,
                 "unit": deliveryAddress.unit,
-                "instructions": deliveryAddress.instructions,
-                "latitude": locationSearchVM.selectedLocation?.coordinate.latitude,
-                "longitude": locationSearchVM.selectedLocation?.coordinate.longitude
+                "instructions": deliveryAddress.instructions
             ]
+            
+            // Store latitude and longitude at the root level
+            orderData["latitude"] = locationSearchVM.selectedLocation?.coordinate.latitude ?? 0
+            orderData["longitude"] = locationSearchVM.selectedLocation?.coordinate.longitude ?? 0
         }
         
         if let paymentIntentId = paymentIntentId {

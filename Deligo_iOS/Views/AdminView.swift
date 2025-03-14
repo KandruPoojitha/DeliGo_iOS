@@ -12,8 +12,7 @@ struct AdminView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Logo
-            Image("deligo_logo") // Ensure this asset exists in your project
+            Image("deligo_logo")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 80, height: 80)

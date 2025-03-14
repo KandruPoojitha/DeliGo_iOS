@@ -9,7 +9,6 @@ struct Deligo_iOSApp: App {
     init() {
         FirebaseApp.configure()
         
-        // Enable Firebase offline persistence
         Database.database().isPersistenceEnabled = true
         
         if let path = Bundle.main.path(forResource: "GoogleMapsConfig", ofType: "plist"),

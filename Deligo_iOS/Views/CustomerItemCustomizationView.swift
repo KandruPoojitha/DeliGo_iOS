@@ -61,6 +61,7 @@ struct CustomerItemCustomizationView: View {
     @State private var quantity = 1
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var specialInstructions: String = ""
     
     init(item: MenuItem, isPresented: Binding<Bool>, authViewModel: AuthViewModel) {
         self.item = item
@@ -181,6 +182,22 @@ struct CustomerItemCustomizationView: View {
                         .padding(.horizontal)
                     }
                 }
+                
+                // Special Instructions
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Special Instructions")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    TextField("Add any special requests here...", text: $specialInstructions, axis: .vertical)
+                        .padding()
+                        .frame(minHeight: 80)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        .lineLimit(3...5)
+                        .padding(.horizontal)
+                }
+                .padding(.vertical)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -280,7 +297,7 @@ struct CustomerItemCustomizationView: View {
             imageURL: item.imageURL,
             quantity: quantity,
             customizations: customizations,
-            specialInstructions: "",
+            specialInstructions: specialInstructions,
             totalPrice: totalPrice
         )
         

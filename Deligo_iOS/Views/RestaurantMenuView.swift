@@ -824,7 +824,7 @@ struct AddCustomizationView: View {
                 }
                 
                 Section(header: Text("Options")) {
-                    ForEach(options) { option in
+                    ForEach(options, id: \.id) { option in
                         HStack {
                             Text(option.name)
                             Spacer()
