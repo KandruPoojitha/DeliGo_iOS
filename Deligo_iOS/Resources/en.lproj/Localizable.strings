@@ -1,0 +1,44 @@
+// Common
+"account" = "Account";
+"save" = "Save";
+"done" = "Done";
+"cancel" = "Cancel";
+
+// Account View
+"store_settings" = "Store Settings";
+"store_hours" = "Store Hours";
+"store_info" = "Store Information";
+"appearance" = "Appearance";
+"dark_mode" = "Dark Mode";
+"language" = "Language";
+"sign_out" = "Sign Out";
+
+// Store Hours
+"monday" = "Monday";
+"tuesday" = "Tuesday";
+"wednesday" = "Wednesday";
+"thursday" = "Thursday";
+"friday" = "Friday";
+"saturday" = "Saturday";
+"sunday" = "Sunday";
+"open" = "Open";
+"close" = "Close";
+
+// Store Info
+"contact_information" = "Contact Information";
+"address" = "Address";
+"phone" = "Phone";
+"email" = "Email";
+"about" = "About";
+
+// Menu
+"menu" = "Menu";
+"add_item" = "Add Item";
+"edit_item" = "Edit Item";
+"delete_item" = "Delete Item";
+"price" = "Price";
+"description" = "Description";
+"category" = "Category";
+"availability" = "Availability";
+"store_location" = "Store Location";
+"search_location" = "Search location..."; 

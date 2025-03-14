@@ -1,0 +1,727 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 84223D672D77FB2700EFC440 /* GoogleMaps */; };
+		84B1E59A2D8262D500710241 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5992D8262D500710241 /* Stripe */; };
+		84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A12D8262D500710241 /* StripePaymentSheet */; };
+		84B1E5A42D8262D500710241 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A32D8262D500710241 /* StripePayments */; };
+		84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A52D8262D500710241 /* StripePaymentsUI */; };
+		84B1E5B22D82733D00710241 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5B12D82733D00710241 /* FirebaseAnalytics */; };
+		84B1E5B62D82733D00710241 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */; };
+		84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E12D79948C00D1F76A /* GooglePlaces */; };
+		84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */; };
+		84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5922D72D18500ACD0AD /* FirebaseAuth */; };
+		84D6A5952D72D18500ACD0AD /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5942D72D18500ACD0AD /* FirebaseCore */; };
+		84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5962D72D18500ACD0AD /* FirebaseDatabase */; };
+		84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5982D72D18500ACD0AD /* FirebaseFunctions */; };
+		84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A59A2D72D18500ACD0AD /* FirebaseStorage */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		84D6A5672D72D0AD00ACD0AD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 84D6A54E2D72D0A900ACD0AD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84D6A5552D72D0A900ACD0AD;
+			remoteInfo = Deligo_iOS;
+		};
+		84D6A5712D72D0AD00ACD0AD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 84D6A54E2D72D0A900ACD0AD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84D6A5552D72D0A900ACD0AD;
+			remoteInfo = Deligo_iOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deligo_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D6A5662D72D0AD00ACD0AD /* Deligo_iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Deligo_iOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D6A5702D72D0AD00ACD0AD /* Deligo_iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Deligo_iOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		84D6A5582D72D0A900ACD0AD /* Deligo_iOS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Deligo_iOS;
+			sourceTree = "<group>";
+		};
+		84D6A5692D72D0AD00ACD0AD /* Deligo_iOSTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Deligo_iOSTests;
+			sourceTree = "<group>";
+		};
+		84D6A5732D72D0AD00ACD0AD /* Deligo_iOSUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Deligo_iOSUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		84D6A5532D72D0A900ACD0AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */,
+				84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */,
+				84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */,
+				84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */,
+				84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */,
+				84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */,
+				84D6A5952D72D18500ACD0AD /* FirebaseCore in Frameworks */,
+				84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */,
+				84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */,
+				84B1E5B22D82733D00710241 /* FirebaseAnalytics in Frameworks */,
+				84B1E5B62D82733D00710241 /* FirebaseFunctionsCombine-Community in Frameworks */,
+				84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */,
+				84B1E5A42D8262D500710241 /* StripePayments in Frameworks */,
+				84B1E59A2D8262D500710241 /* Stripe in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A5632D72D0AD00ACD0AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A56D2D72D0AD00ACD0AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		84D6A54D2D72D0A900ACD0AD = {
+			isa = PBXGroup;
+			children = (
+				84D6A5582D72D0A900ACD0AD /* Deligo_iOS */,
+				84D6A5692D72D0AD00ACD0AD /* Deligo_iOSTests */,
+				84D6A5732D72D0AD00ACD0AD /* Deligo_iOSUITests */,
+				84D6A5572D72D0A900ACD0AD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		84D6A5572D72D0A900ACD0AD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */,
+				84D6A5662D72D0AD00ACD0AD /* Deligo_iOSTests.xctest */,
+				84D6A5702D72D0AD00ACD0AD /* Deligo_iOSUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		84D6A5552D72D0A900ACD0AD /* Deligo_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 84D6A57A2D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOS" */;
+			buildPhases = (
+				84D6A5522D72D0A900ACD0AD /* Sources */,
+				84D6A5532D72D0A900ACD0AD /* Frameworks */,
+				84D6A5542D72D0A900ACD0AD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				84D6A5582D72D0A900ACD0AD /* Deligo_iOS */,
+			);
+			name = Deligo_iOS;
+			packageProductDependencies = (
+				84D6A5922D72D18500ACD0AD /* FirebaseAuth */,
+				84D6A5942D72D18500ACD0AD /* FirebaseCore */,
+				84D6A5962D72D18500ACD0AD /* FirebaseDatabase */,
+				84D6A5982D72D18500ACD0AD /* FirebaseFunctions */,
+				84D6A59A2D72D18500ACD0AD /* FirebaseStorage */,
+				84223D672D77FB2700EFC440 /* GoogleMaps */,
+				84D4E0E12D79948C00D1F76A /* GooglePlaces */,
+				84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */,
+				84B1E5992D8262D500710241 /* Stripe */,
+				84B1E5A12D8262D500710241 /* StripePaymentSheet */,
+				84B1E5A32D8262D500710241 /* StripePayments */,
+				84B1E5A52D8262D500710241 /* StripePaymentsUI */,
+				84B1E5B12D82733D00710241 /* FirebaseAnalytics */,
+				84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */,
+			);
+			productName = Deligo_iOS;
+			productReference = 84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		84D6A5652D72D0AD00ACD0AD /* Deligo_iOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 84D6A57D2D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOSTests" */;
+			buildPhases = (
+				84D6A5622D72D0AD00ACD0AD /* Sources */,
+				84D6A5632D72D0AD00ACD0AD /* Frameworks */,
+				84D6A5642D72D0AD00ACD0AD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				84D6A5682D72D0AD00ACD0AD /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				84D6A5692D72D0AD00ACD0AD /* Deligo_iOSTests */,
+			);
+			name = Deligo_iOSTests;
+			packageProductDependencies = (
+			);
+			productName = Deligo_iOSTests;
+			productReference = 84D6A5662D72D0AD00ACD0AD /* Deligo_iOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		84D6A56F2D72D0AD00ACD0AD /* Deligo_iOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 84D6A5802D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOSUITests" */;
+			buildPhases = (
+				84D6A56C2D72D0AD00ACD0AD /* Sources */,
+				84D6A56D2D72D0AD00ACD0AD /* Frameworks */,
+				84D6A56E2D72D0AD00ACD0AD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				84D6A5722D72D0AD00ACD0AD /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				84D6A5732D72D0AD00ACD0AD /* Deligo_iOSUITests */,
+			);
+			name = Deligo_iOSUITests;
+			packageProductDependencies = (
+			);
+			productName = Deligo_iOSUITests;
+			productReference = 84D6A5702D72D0AD00ACD0AD /* Deligo_iOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		84D6A54E2D72D0A900ACD0AD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					84D6A5552D72D0A900ACD0AD = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					84D6A5652D72D0AD00ACD0AD = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 84D6A5552D72D0A900ACD0AD;
+					};
+					84D6A56F2D72D0AD00ACD0AD = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 84D6A5552D72D0A900ACD0AD;
+					};
+				};
+			};
+			buildConfigurationList = 84D6A5512D72D0A900ACD0AD /* Build configuration list for PBXProject "Deligo_iOS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				fr,
+			);
+			mainGroup = 84D6A54D2D72D0A900ACD0AD;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
+				84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */,
+				84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 84D6A5572D72D0A900ACD0AD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				84D6A5552D72D0A900ACD0AD /* Deligo_iOS */,
+				84D6A5652D72D0AD00ACD0AD /* Deligo_iOSTests */,
+				84D6A56F2D72D0AD00ACD0AD /* Deligo_iOSUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		84D6A5542D72D0A900ACD0AD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A5642D72D0AD00ACD0AD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A56E2D72D0AD00ACD0AD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		84D6A5522D72D0A900ACD0AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A5622D72D0AD00ACD0AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84D6A56C2D72D0AD00ACD0AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		84D6A5682D72D0AD00ACD0AD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84D6A5552D72D0A900ACD0AD /* Deligo_iOS */;
+			targetProxy = 84D6A5672D72D0AD00ACD0AD /* PBXContainerItemProxy */;
+		};
+		84D6A5722D72D0AD00ACD0AD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84D6A5552D72D0A900ACD0AD /* Deligo_iOS */;
+			targetProxy = 84D6A5712D72D0AD00ACD0AD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		84D6A5782D72D0AD00ACD0AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		84D6A5792D72D0AD00ACD0AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		84D6A57B2D72D0AD00ACD0AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Deligo_iOS/Preview Content\"";
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Deligo-iOS-Info.plist";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		84D6A57C2D72D0AD00ACD0AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Deligo_iOS/Preview Content\"";
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Deligo-iOS-Info.plist";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		84D6A57E2D72D0AD00ACD0AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOSTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Deligo_iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Deligo_iOS";
+			};
+			name = Debug;
+		};
+		84D6A57F2D72D0AD00ACD0AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOSTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Deligo_iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Deligo_iOS";
+			};
+			name = Release;
+		};
+		84D6A5812D72D0AD00ACD0AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOSUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Deligo_iOS;
+			};
+			name = Debug;
+		};
+		84D6A5822D72D0AD00ACD0AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3L4NQMYQ54;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "pr.Deligo-iOSUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Deligo_iOS;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		84D6A5512D72D0A900ACD0AD /* Build configuration list for PBXProject "Deligo_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84D6A5782D72D0AD00ACD0AD /* Debug */,
+				84D6A5792D72D0AD00ACD0AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		84D6A57A2D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84D6A57B2D72D0AD00ACD0AD /* Debug */,
+				84D6A57C2D72D0AD00ACD0AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		84D6A57D2D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84D6A57E2D72D0AD00ACD0AD /* Debug */,
+				84D6A57F2D72D0AD00ACD0AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		84D6A5802D72D0AD00ACD0AD /* Build configuration list for PBXNativeTarget "Deligo_iOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84D6A5812D72D0AD00ACD0AD /* Debug */,
+				84D6A5822D72D0AD00ACD0AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.7.0;
+			};
+		};
+		84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-places-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.3.0;
+			};
+		};
+		84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.9.0;
+			};
+		};
+		84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		84223D672D77FB2700EFC440 /* GoogleMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
+			productName = GoogleMaps;
+		};
+		84B1E5992D8262D500710241 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = Stripe;
+		};
+		84B1E5A12D8262D500710241 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+		84B1E5A32D8262D500710241 /* StripePayments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePayments;
+		};
+		84B1E5A52D8262D500710241 /* StripePaymentsUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentsUI;
+		};
+		84B1E5B12D82733D00710241 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseFunctionsCombine-Community";
+		};
+		84D4E0E12D79948C00D1F76A /* GooglePlaces */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */;
+			productName = GooglePlaces;
+		};
+		84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */;
+			productName = GooglePlacesSwift;
+		};
+		84D6A5922D72D18500ACD0AD /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		84D6A5942D72D18500ACD0AD /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		84D6A5962D72D18500ACD0AD /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		84D6A5982D72D18500ACD0AD /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+		84D6A59A2D72D18500ACD0AD /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 84D6A54E2D72D0A900ACD0AD /* Project object */;
+}
