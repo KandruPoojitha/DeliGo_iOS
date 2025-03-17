@@ -1,14 +1,38 @@
 import SwiftUI
 import FirebaseDatabase
 
+enum SupportType {
+    case customer
+    case restaurant
+    case driver
+    
+    var title: String {
+        switch self {
+        case .customer: return "Customer Support"
+        case .restaurant: return "Restaurant Support"
+        case .driver: return "Driver Support"
+        }
+    }
+    
+    var userRoleFilter: String {
+        switch self {
+        case .customer: return "Customer"
+        case .restaurant: return "Restaurant"
+        case .driver: return "Driver"
+        }
+    }
+}
+
 struct AdminChatListView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @StateObject private var chatManager: ChatManager
     @State private var chatThreads: [ChatThread] = []
     @State private var isLoading = true
+    let supportType: SupportType
     
-    init(authViewModel: AuthViewModel) {
+    init(authViewModel: AuthViewModel, supportType: SupportType = .customer) {
         self.authViewModel = authViewModel
+        self.supportType = supportType
         
         // Create a chat manager for the admin
         let userId = authViewModel.currentUserId ?? ""
@@ -34,7 +58,7 @@ struct AdminChatListView: View {
                     Text("No Support Requests")
                         .font(.title2)
                         .fontWeight(.medium)
-                    Text("When customers send messages, they will appear here")
+                    Text("When \(supportType.userRoleFilter.lowercased())s send messages, they will appear here")
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
@@ -53,7 +77,7 @@ struct AdminChatListView: View {
                 }
             }
         }
-        .navigationTitle("Support Chats")
+        .navigationTitle(supportType.title)
         .onAppear {
             loadChatThreads()
         }
@@ -62,9 +86,12 @@ struct AdminChatListView: View {
     private func loadChatThreads() {
         isLoading = true
         
-        chatManager.loadChatThreads { threads in
+        chatManager.loadChatThreads { allThreads in
             DispatchQueue.main.async {
-                self.chatThreads = threads
+                // Filter threads by user role
+                self.chatThreads = allThreads.filter { thread in
+                    return thread.userRole == self.supportType.userRoleFilter
+                }
                 self.isLoading = false
             }
         }

@@ -75,6 +75,7 @@ struct ChatThread: Identifiable, Equatable {
     var lastMessage: String
     var lastMessageTimestamp: Double
     var unreadCount: Int
+    var userRole: String = "Customer" // Default to Customer
     
     static func fromDict(_ dict: [String: Any], id: String) -> ChatThread? {
         guard let customerId = dict["customerId"] as? String,
@@ -85,7 +86,7 @@ struct ChatThread: Identifiable, Equatable {
             return nil
         }
         
-        return ChatThread(
+        var thread = ChatThread(
             id: id,
             customerId: customerId,
             customerName: customerName,
@@ -93,6 +94,13 @@ struct ChatThread: Identifiable, Equatable {
             lastMessageTimestamp: lastMessageTimestamp,
             unreadCount: unreadCount
         )
+        
+        // If userRole is available in the data, use it
+        if let userRole = dict["userRole"] as? String {
+            thread.userRole = userRole
+        }
+        
+        return thread
     }
     
     static func == (lhs: ChatThread, rhs: ChatThread) -> Bool {
@@ -101,6 +109,7 @@ struct ChatThread: Identifiable, Equatable {
                lhs.customerName == rhs.customerName &&
                lhs.lastMessage == rhs.lastMessage &&
                lhs.lastMessageTimestamp == rhs.lastMessageTimestamp &&
-               lhs.unreadCount == rhs.unreadCount
+               lhs.unreadCount == rhs.unreadCount &&
+               lhs.userRole == rhs.userRole
     }
 } 

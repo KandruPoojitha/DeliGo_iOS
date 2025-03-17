@@ -147,6 +147,53 @@ class ChatManager: ObservableObject {
         }
     }
     
+    // Get total unread count for all threads
+    func getTotalUnreadCount(completion: @escaping (Int) -> Void) {
+        guard isAdmin else {
+            completion(0)
+            return
+        }
+        
+        threadsRef.observeSingleEvent(of: .value) { snapshot in
+            var totalCount = 0
+            
+            for child in snapshot.children {
+                guard let snapshot = child as? DataSnapshot,
+                      let dict = snapshot.value as? [String: Any],
+                      let unreadCount = dict["unreadCount"] as? Int else { continue }
+                
+                totalCount += unreadCount
+            }
+            
+            completion(totalCount)
+        }
+    }
+    
+    // Get unread count for a specific user role
+    func getUnreadCountByRole(role: String, completion: @escaping (Int) -> Void) {
+        guard isAdmin else {
+            completion(0)
+            return
+        }
+        
+        threadsRef.observeSingleEvent(of: .value) { snapshot in
+            var roleCount = 0
+            
+            for child in snapshot.children {
+                guard let snapshot = child as? DataSnapshot,
+                      let dict = snapshot.value as? [String: Any],
+                      let unreadCount = dict["unreadCount"] as? Int,
+                      let userRole = dict["userRole"] as? String else { continue }
+                
+                if userRole == role {
+                    roleCount += unreadCount
+                }
+            }
+            
+            completion(roleCount)
+        }
+    }
+    
     // Get or create a thread ID for a customer
     func getThreadId() -> String {
         if isAdmin {

@@ -548,13 +548,6 @@ struct BusinessHours: Codable {
     let closing: String
 }
 
-struct ChatManagementView: View {
-    var body: some View {
-        Text("Chat Management")
-            .navigationTitle("Chat Management")
-    }
-}
-
 struct CustomerHomeView: View {
     let locationManager: CustomLocationManager
     let authViewModel: AuthViewModel

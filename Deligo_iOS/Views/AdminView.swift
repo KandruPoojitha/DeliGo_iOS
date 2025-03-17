@@ -4,10 +4,26 @@ import FirebaseAuth
 struct AdminView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var selectedTab: AdminTab? = nil
+    @State private var totalUnreadCount: Int = 0
+    @StateObject private var chatManager: ChatManager
     
     enum AdminTab {
         case userManagement
         case chatManagement
+    }
+    
+    init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+        
+        // Create a chat manager for the admin
+        let userId = authViewModel.currentUserId ?? ""
+        let userName = "Admin Support" // Fixed name for admin
+        
+        _chatManager = StateObject(wrappedValue: ChatManager(
+            userId: userId,
+            userName: userName,
+            isAdmin: true
+        ))
     }
     
     var body: some View {
@@ -36,7 +52,19 @@ struct AdminView: View {
                 }
                 
                 Button(action: { selectedTab = .chatManagement }) {
-                    AdminMenuButton(title: "Customer Support Messages")
+                    ZStack(alignment: .topTrailing) {
+                        AdminMenuButton(title: "Customer Support Messages")
+                        
+                        if totalUnreadCount > 0 {
+                            Text("\(totalUnreadCount)")
+                                .font(.caption)
+                                .padding(6)
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .clipShape(Circle())
+                                .offset(x: -5, y: -5)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 20)
@@ -61,14 +89,25 @@ struct AdminView: View {
                 }
             case .chatManagement:
                 NavigationView {
-                    AdminChatListView(authViewModel: authViewModel)
+                    ChatManagementView(authViewModel: authViewModel)
                 }
             }
+        }
+        .onAppear {
+            loadTotalUnreadCount()
         }
     }
     
     private func handleLogout() {
         authViewModel.logout()
+    }
+    
+    private func loadTotalUnreadCount() {
+        chatManager.getTotalUnreadCount { count in
+            DispatchQueue.main.async {
+                self.totalUnreadCount = count
+            }
+        }
     }
 }
 
