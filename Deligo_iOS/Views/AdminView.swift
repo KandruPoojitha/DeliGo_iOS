@@ -36,7 +36,7 @@ struct AdminView: View {
                 }
                 
                 Button(action: { selectedTab = .chatManagement }) {
-                    AdminMenuButton(title: "Chat Management")
+                    AdminMenuButton(title: "Customer Support Messages")
                 }
             }
             .padding(.horizontal, 20)
@@ -61,7 +61,7 @@ struct AdminView: View {
                 }
             case .chatManagement:
                 NavigationView {
-                    ChatManagementView()
+                    AdminChatListView(authViewModel: authViewModel)
                 }
             }
         }

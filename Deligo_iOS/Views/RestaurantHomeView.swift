@@ -2152,7 +2152,6 @@ struct InProgressOrdersView: View {
                 
                 print("DEBUG: Examining order \(snapshot.key) with status: '\(status)'")
                 
-                // Check if this order belongs to this restaurant and has preparing OR in_progress status
                 if orderRestaurantId == restaurantId && (status == "preparing" || status == "in_progress" || status == "assigned_driver") {
                     print("DEBUG: Found matching in-progress order: \(snapshot.key)")
                     

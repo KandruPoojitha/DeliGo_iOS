@@ -164,7 +164,7 @@ struct MainCustomerView: View {
                     HStack {
                         Image(systemName: locationManager.location != nil ? "location.fill" : "location.slash.fill")
                             .foregroundColor(locationManager.location != nil ? Color(hex: "F4A261") : .red)
-                        if let location = locationManager.location {
+                        if locationManager.location != nil {
                             Text("Location found")
                                 .font(.caption)
                                 .foregroundColor(.gray)
@@ -282,6 +282,14 @@ struct MainCustomerView: View {
                     Text("Account")
                 }
                 .tag(4)
+            
+            // Support Chat Tab
+            CustomerChatView(authViewModel: authViewModel)
+                .tabItem {
+                    Image(systemName: "message.fill")
+                    Text("Support")
+                }
+                .tag(5)
         }
         .accentColor(Color(hex: "F4A261"))
         .onAppear {

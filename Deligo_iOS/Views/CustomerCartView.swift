@@ -98,17 +98,35 @@ struct CartItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                if let imageURL = item.imageURL {
-                    AsyncImage(url: URL(string: imageURL)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.gray.opacity(0.3)
+                if let imageURL = item.imageURL, !imageURL.isEmpty {
+                    let _ = print("Loading image from URL: \(imageURL)")
+                    
+                    AsyncImage(url: URL(string: imageURL)) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 80, height: 80)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .cornerRadius(8)
+                                .clipped()
+                        case .failure:
+                            Image(systemName: "photo")
+                                .font(.system(size: 30))
+                                .foregroundColor(.gray)
+                                .frame(width: 80, height: 80)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                        @unknown default:
+                            EmptyView()
+                        }
                     }
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(8)
                 } else {
+                    let _ = print("No image URL for item: \(item.name)")
+                    
                     Image(systemName: "photo")
                         .font(.system(size: 30))
                         .foregroundColor(.gray)

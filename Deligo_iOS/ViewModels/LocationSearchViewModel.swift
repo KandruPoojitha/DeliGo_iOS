@@ -33,7 +33,7 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     private func fetchPlacePredictions(for query: String) {
         let filter = GMSAutocompleteFilter()
         filter.countries = ["CA"] // Restrict to Canada
-        filter.type = .address
+        filter.types = ["address"]
         
         let token = GMSAutocompleteSessionToken.init()
         

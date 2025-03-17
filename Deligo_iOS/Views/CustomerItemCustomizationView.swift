@@ -263,10 +263,17 @@ struct CustomerItemCustomizationView: View {
     }
     
     private func addToCart() {
-        guard let userId = authViewModel.currentUserId else {
+        guard authViewModel.currentUserId != nil else {
             alertMessage = "Error: User not logged in"
             showingAlert = true
             return
+        }
+        
+        // Debug the original menu item's image URL
+        if let imageURL = item.imageURL {
+            print("Original menu item has image URL: \(imageURL)")
+        } else {
+            print("Original menu item has no image URL")
         }
         
         // Create customization selections
@@ -300,6 +307,13 @@ struct CustomerItemCustomizationView: View {
             specialInstructions: specialInstructions,
             totalPrice: totalPrice
         )
+        
+        // Debug the cart item's image URL
+        if let imageURL = cartItem.imageURL {
+            print("Cart item created with image URL: \(imageURL)")
+        } else {
+            print("Cart item created with no image URL")
+        }
         
         cartManager.addToCart(item: cartItem)
         alertMessage = "Item added to cart successfully!"

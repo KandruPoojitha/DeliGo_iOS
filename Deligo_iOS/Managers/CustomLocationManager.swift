@@ -28,8 +28,7 @@ class CustomLocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         if CLLocationManager.locationServicesEnabled() &&
            (authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways) {
             locationManager.startUpdatingLocation()
-            // Force an immediate location update request
-            locationManager.requestLocation()
+            // Remove the direct call to requestLocation() here
             locationError = nil
             print("DEBUG: Location updates started")
         } else {
@@ -60,6 +59,10 @@ class CustomLocationManager: NSObject, ObservableObject, CLLocationManagerDelega
             case .authorizedWhenInUse, .authorizedAlways:
                 print("DEBUG: Location access authorized, starting updates")
                 self.startUpdatingLocation()
+                // Request a one-time location update here instead
+                DispatchQueue.global(qos: .userInitiated).async {
+                    manager.requestLocation()
+                }
             @unknown default:
                 print("DEBUG: Unknown location authorization status")
                 self.locationError = "Unknown location authorization status"

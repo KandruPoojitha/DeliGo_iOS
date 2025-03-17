@@ -60,6 +60,14 @@ class CartManager: ObservableObject {
                     let description = dict["description"] as? String ?? ""
                     let price = dict["price"] as? Double ?? 0.0
                     let imageURL = dict["imageURL"] as? String
+                    
+                    // Debug the image URL
+                    if let imageURL = imageURL, !imageURL.isEmpty {
+                        print("Cart item has image URL: \(imageURL)")
+                    } else {
+                        print("Cart item has no valid image URL")
+                    }
+                    
                     let quantity = dict["quantity"] as? Int ?? 1
                     let specialInstructions = dict["specialInstructions"] as? String ?? ""
                     let totalPrice = dict["totalPrice"] as? Double ?? 0.0
@@ -128,12 +136,19 @@ class CartManager: ObservableObject {
         isLoading = true
         print("Adding item to cart: \(item.name)")
         
+        // Debug the image URL
+        if let imageURL = item.imageURL {
+            print("Item has image URL: \(imageURL)")
+        } else {
+            print("Item has no image URL")
+        }
+        
         let cartData: [String: Any] = [
             "menuItemId": item.menuItemId,
             "name": item.name,
             "description": item.description,
             "price": item.price,
-            "imageURL": item.imageURL as Any,
+            "imageURL": item.imageURL ?? "",  // Ensure we store empty string instead of nil
             "quantity": item.quantity,
             "customizations": item.customizations.mapValues { selections in
                 selections.map { selection in

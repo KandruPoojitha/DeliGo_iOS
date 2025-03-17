@@ -161,6 +161,16 @@ struct RestaurantAccountView: View {
                     }
                 }
                 
+                Section(header: Text("Customer Support")) {
+                    NavigationLink(destination: AdminChatListView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "message.fill")
+                            Text("Support Messages")
+                            Spacer()
+                        }
+                    }
+                }
+                
                 Section(header: Text(appSettings.localizedString("appearance"))) {
                     Toggle(isOn: $appSettings.isDarkMode) {
                         HStack {
@@ -461,7 +471,7 @@ struct StoreInfoView: View {
     private func searchAddress(_ query: String) {
         let filter = GMSAutocompleteFilter()
         filter.countries = ["CA"] // Restrict to Canada
-        filter.type = .address // Only show address results
+        filter.types = ["address"] // Only show address results
         
         placesClient.findAutocompletePredictions(
             fromQuery: query,
@@ -480,10 +490,11 @@ struct StoreInfoView: View {
     }
     
     private func selectLocation(_ prediction: GMSAutocompletePrediction) {
-        // Use the older API method since the newer one may not be available
+        let fields: GMSPlaceField = [.name, .formattedAddress, .coordinate]
+        
         placesClient.fetchPlace(
             fromPlaceID: prediction.placeID,
-            placeFields: [.name, .formattedAddress, .coordinate],
+            placeFields: fields,
             sessionToken: nil
         ) { (place, error) in
             if let error = error {
