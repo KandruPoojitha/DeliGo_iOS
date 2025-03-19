@@ -247,6 +247,86 @@ struct OrdersTabView: View {
                     checkOrderData()
                     checkSpecificOrder("B46CA690-9DB0-43F3-97B4-0279CCEED7B1") // Check specific order ID from screenshot
                 }
+                
+                // Listen for order status changes
+                NotificationCenter.default.addObserver(
+                    forName: Notification.Name("OrderStatusChanged"),
+                    object: nil,
+                    queue: .main
+                ) { notification in
+                    if let userInfo = notification.userInfo,
+                       let orderId = userInfo["orderId"] as? String {
+                        
+                        print("DEBUG: 🔔 OrdersTabView received notification for order: \(orderId)")
+                        
+                        // If the notification includes the status and order_status, use them directly
+                        if let newStatus = userInfo["newStatus"] as? String,
+                           let newOrderStatus = userInfo["newOrderStatus"] as? String {
+                            
+                            print("DEBUG: 📊 Notification contains status=\(newStatus), order_status=\(newOrderStatus)")
+                            
+                            // Switch to the appropriate tab based on the status
+                            DispatchQueue.main.async {
+                                if (newStatus == "in_progress" && newOrderStatus == "accepted") {
+                                    // Switch to the in-progress tab for in_progress/accepted orders
+                                    if selectedOrderTab != 1 {
+                                        print("DEBUG: 🔄 Switching to In Progress tab for accepted order")
+                                        selectedOrderTab = 1
+                                    }
+                                } else if newStatus == "delivered" {
+                                    // Switch to the delivered tab for delivered orders
+                                    if selectedOrderTab != 2 {
+                                        print("DEBUG: 🔄 Switching to Delivered tab for delivered order")
+                                        selectedOrderTab = 2
+                                    }
+                                }
+                            }
+                        } else {
+                            // No direct status info, query Firebase
+                            let database = Database.database().reference()
+                            database.child("orders").child(orderId).observeSingleEvent(of: .value) { snapshot in
+                                if let dict = snapshot.value as? [String: Any],
+                                   let status = dict["status"] as? String {
+                                    
+                                    let orderStatus = dict["order_status"] as? String ?? ""
+                                    print("DEBUG: 🔍 Fetched status=\(status), order_status=\(orderStatus) for order \(orderId)")
+                                    
+                                    DispatchQueue.main.async {
+                                        // Switch to the appropriate tab based on the status
+                                        switch status.lowercased() {
+                                        case "in_progress":
+                                            // For in_progress, also check order_status
+                                            if orderStatus.lowercased() == "accepted" {
+                                                // Only switch if we're not already on the in-progress tab
+                                                if selectedOrderTab != 1 {
+                                                    print("DEBUG: 🔄 Switching to In Progress tab due to order status change")
+                                                    selectedOrderTab = 1
+                                                }
+                                            }
+                                        case "preparing", "assigned_driver":
+                                            // Only switch if we're not already on the in-progress tab
+                                            if selectedOrderTab != 1 {
+                                                print("DEBUG: 🔄 Switching to In Progress tab due to order status change")
+                                                selectedOrderTab = 1
+                                            }
+                                        case "delivered":
+                                            // Only switch if we're not already on the delivered tab
+                                            if selectedOrderTab != 2 {
+                                                print("DEBUG: 🔄 Switching to Delivered tab due to order status change")
+                                                selectedOrderTab = 2
+                                            }
+                                        default:
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .onDisappear {
+                NotificationCenter.default.removeObserver(self)
             }
         }
     }
@@ -666,10 +746,6 @@ struct NewOrdersView: View {
         
         print("DEBUG: Loading new orders for restaurant: '\(restaurantId)'")
         
-        // HARDCODED RESTAURANT ID FOR TESTING
-        let testRestaurantId = "08960011-1ABC-4E65-B0C2-4A1745DBFCB4"
-        print("DEBUG: Using test restaurant ID: '\(testRestaurantId)'")
-        
         // Use a direct query to get all orders
         database.child("orders").observeSingleEvent(of: .value) { snapshot in
             print("DEBUG: Found \(snapshot.childrenCount) total orders in database")
@@ -688,16 +764,14 @@ struct NewOrdersView: View {
                 print("DEBUG: Order status: '\(status)'")
                 print("DEBUG: Order restaurantId: '\(orderRestaurantId)'")
                 print("DEBUG: Current User ID: '\(restaurantId)'")
-                print("DEBUG: Test Restaurant ID: '\(testRestaurantId)'")
                 print("DEBUG: Order matches user ID? \(orderRestaurantId == restaurantId)")
-                print("DEBUG: Order matches test ID? \(orderRestaurantId == testRestaurantId)")
                 
                 // Check if this order has pending status
                 if status == "pending" {
                     print("DEBUG: Found pending order: \(snapshot.key)")
                     
-                    // Try direct ID comparison first
-                    if orderRestaurantId == restaurantId || orderRestaurantId == testRestaurantId {
+                    // Check if this order belongs to the current restaurant
+                    if orderRestaurantId == restaurantId {
                         if let order = Order(id: snapshot.key, data: dict) {
                             print("DEBUG: Adding order to new orders list")
                             newOrders.append(order)
@@ -715,23 +789,50 @@ struct NewOrdersView: View {
     }
     
     private func acceptOrder(_ order: Order) {
-        // Update order status to in_progress
-        database.child("orders").child(order.id).updateChildValues([
+        guard let restaurantId = authViewModel.currentUserId else {
+            print("DEBUG: ❌ No restaurant ID available")
+            return
+        }
+
+        // Update order status to in_progress and order_status to accepted
+        let orderUpdates: [String: Any] = [
             "status": "in_progress",
-            "order_status": "in_progress",
+            "order_status": "accepted",
+            "restaurantId": restaurantId,  // Ensure correct restaurant ID
             "updatedAt": ServerValue.timestamp()
-        ]) { error, _ in
+        ]
+        
+        database.child("orders").child(order.id).updateChildValues(orderUpdates) { error, _ in
             if let error = error {
-                print("DEBUG: Error accepting order: \(error.localizedDescription)")
+                print("DEBUG: ❌ Error accepting order: \(error.localizedDescription)")
             } else {
-                print("DEBUG: Order \(order.id) accepted and set to in_progress")
-                // Notify that order status has changed
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(
-                        name: Notification.Name("OrderStatusChanged"),
-                        object: nil,
-                        userInfo: ["orderId": order.id]
-                    )
+                print("DEBUG: ✅ Successfully accepted order \(order.id)")
+                print("DEBUG: 📊 Updated status to: in_progress, order_status to: accepted")
+                
+                // Manually verify the updates took effect
+                self.database.child("orders").child(order.id).observeSingleEvent(of: .value) { snapshot in
+                    if let dict = snapshot.value as? [String: Any] {
+                        let status = dict["status"] as? String ?? ""
+                        let orderStatus = dict["order_status"] as? String ?? ""
+                        let updatedRestaurantId = dict["restaurantId"] as? String ?? ""
+                        print("DEBUG: 🔍 Verification - Order \(order.id):")
+                        print("DEBUG: 📊 status=\(status), order_status=\(orderStatus)")
+                        print("DEBUG: 📊 restaurantId=\(updatedRestaurantId)")
+                    }
+                    
+                    // Notify that order status has changed
+                    DispatchQueue.main.async {
+                        print("DEBUG: 📣 Posting OrderStatusChanged notification for order \(order.id)")
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": order.id,
+                                "newStatus": "in_progress",
+                                "newOrderStatus": "accepted"
+                            ]
+                        )
+                    }
                 }
             }
         }
@@ -1988,14 +2089,18 @@ struct OrderItemOptionDisplay: Identifiable {
 struct InProgressOrdersView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var orders: [Order] = []
-    @State private var customerNames: [String: String] = [:] // To store updated customer names
-    @State private var customerPhones: [String: String] = [:] // To store updated customer phones
+    @State private var customerNames: [String: String] = [:]
+    @State private var customerPhones: [String: String] = [:]
+    @State private var isLoading = false
     private let database = Database.database().reference()
     
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                if orders.isEmpty {
+                if isLoading {
+                    ProgressView("Loading orders...")
+                        .padding(.top, 50)
+                } else if orders.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 50))
@@ -2005,6 +2110,24 @@ struct InProgressOrdersView: View {
                             .fontWeight(.medium)
                         Text("Orders being prepared will appear here")
                             .foregroundColor(.gray)
+                            
+                        Button(action: {
+                            isLoading = true
+                            loadInProgressOrders()
+                            // Add a minimum delay to make the loading state visible
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isLoading = false
+                            }
+                        }) {
+                            Text("Refresh Orders")
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 20)
+                                .background(Color(hex: "F4A261"))
+                                .cornerRadius(8)
+                        }
+                        .padding(.top, 20)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 100)
@@ -2027,7 +2150,16 @@ struct InProgressOrdersView: View {
             }
             .padding(.vertical)
         }
+        .refreshable {
+            isLoading = true
+            loadInProgressOrders()
+            // Add a minimum delay to make the loading state visible
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isLoading = false
+            }
+        }
         .onAppear {
+            isLoading = true
             loadInProgressOrders()
             
             // Listen for customer info updates
@@ -2052,9 +2184,28 @@ struct InProgressOrdersView: View {
                 forName: Notification.Name("OrderStatusChanged"),
                 object: nil,
                 queue: .main
-            ) { _ in
-                print("DEBUG: Received order status change notification, refreshing orders")
-                loadInProgressOrders()
+            ) { notification in
+                print("DEBUG: 🔔 Received order status change notification in InProgressOrdersView")
+                if let userInfo = notification.userInfo,
+                   let orderId = userInfo["orderId"] as? String {
+                    print("DEBUG: 🔔 Order status changed for order ID: \(orderId)")
+                }
+                
+                // Always refresh orders when we get a notification
+                DispatchQueue.main.async {
+                    isLoading = true
+                    print("DEBUG: 🔄 Refreshing in-progress orders after status change")
+                    self.loadInProgressOrders()
+                    // Add a minimum delay to make the loading state visible
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        isLoading = false
+                    }
+                }
+            }
+            
+            // Add a minimum delay to make the loading state visible
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isLoading = false
             }
         }
         .onDisappear {
@@ -2136,10 +2287,11 @@ struct InProgressOrdersView: View {
             return 
         }
         
-        print("DEBUG: Loading in-progress orders for restaurant: \(restaurantId)")
+        print("DEBUG: 🔍 Loading in-progress orders for restaurant: \(restaurantId)")
         
+        // Use a single observation to prevent multiple listeners
         database.child("orders").observeSingleEvent(of: .value) { snapshot in
-            print("DEBUG: Found \(snapshot.childrenCount) total orders in database")
+            print("DEBUG: 🔍 Found \(snapshot.childrenCount) total orders in database")
             
             var inProgressOrders: [Order] = []
             
@@ -2148,27 +2300,44 @@ struct InProgressOrdersView: View {
                 guard let dict = snapshot.value as? [String: Any] else { continue }
                 
                 let status = (dict["status"] as? String ?? "").lowercased()
+                let orderStatus = (dict["order_status"] as? String ?? "").lowercased()
                 let orderRestaurantId = dict["restaurantId"] as? String ?? ""
                 
-                print("DEBUG: Examining order \(snapshot.key) with status: '\(status)'")
+                print("DEBUG: 🔎 Examining order \(snapshot.key)")
+                print("DEBUG: 📊 Status: '\(status)', OrderStatus: '\(orderStatus)', RestaurantId: '\(orderRestaurantId)'")
                 
-                if orderRestaurantId == restaurantId && (status == "preparing" || status == "in_progress" || status == "assigned_driver") {
-                    print("DEBUG: Found matching in-progress order: \(snapshot.key)")
+                // Only process orders for this restaurant
+                if orderRestaurantId == restaurantId {
+                    // Check various status combinations that should appear in In Progress tab
+                    let shouldShow = (
+                        (status == "in_progress" && orderStatus == "accepted") ||  // Accepted orders
+                        status == "preparing" ||                                   // Preparing orders
+                        status == "assigned_driver" ||                            // Orders assigned to drivers
+                        status == "picked_up" ||                                  // Orders picked up by drivers
+                        (status == "in_progress" && orderStatus == "ready_for_pickup") // Ready for pickup
+                    )
                     
-                    if let order = Order(id: snapshot.key, data: dict) {
-                        // Check if this order has a driver assigned
-                        if let driverId = order.driverId {
-                            validateDriverAssignment(orderId: order.id, driverId: driverId)
-                        }
+                    if shouldShow {
+                        print("DEBUG: ✅ Adding order \(snapshot.key) to in-progress list")
+                        print("DEBUG: 📊 Order status=\(status), orderStatus=\(orderStatus)")
                         
-                        inProgressOrders.append(order)
+                        if let order = Order(id: snapshot.key, data: dict) {
+                            inProgressOrders.append(order)
+                            print("DEBUG: ✅ Successfully added order to in-progress list")
+                        }
+                    } else {
+                        print("DEBUG: ❌ Order \(snapshot.key) does not meet in-progress criteria")
                     }
+                } else {
+                    print("DEBUG: ❌ Order \(snapshot.key) belongs to different restaurant")
                 }
             }
             
-            print("DEBUG: Final count of in-progress orders: \(inProgressOrders.count)")
+            print("DEBUG: 📊 Final count of in-progress orders: \(inProgressOrders.count)")
+            
             DispatchQueue.main.async {
                 self.orders = inProgressOrders.sorted { $0.createdAt > $1.createdAt }
+                print("DEBUG: 📱 UI updated with \(self.orders.count) in-progress orders")
                 self.fetchCustomerNames()
             }
         }

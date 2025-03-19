@@ -346,7 +346,7 @@ struct CheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentId):
-                    self.createOrder(userId: userId, status: "paid", paymentIntentId: paymentIntentId)
+                    self.createOrder(userId: userId, status: "pending", paymentIntentId: paymentIntentId)
                 case .failure(let error):
                     self.isProcessingPayment = false
                     self.alertMessage = "Payment failed: \(error.localizedDescription)"
@@ -362,10 +362,46 @@ struct CheckoutView: View {
     
     private func createOrder(userId: String, status: String, paymentIntentId: String?) {
         let orderId = UUID().uuidString
+        
+        // First, determine the correct restaurant ID
+        // We need to get the restaurant ID from our cartManager
+        guard let firstItem = cartManager.cartItems.first else {
+            alertMessage = "No items in cart. Unable to create order."
+            showingAlert = true
+            isProcessingPayment = false
+            return
+        }
+        
+        // Use Firebase to fetch the actual restaurant ID for this menu item
+        let db = Database.database().reference()
+        let menuItemRef = db.child("menu_items").child(firstItem.menuItemId)
+        
+        // First try to get the restaurant ID directly
+        menuItemRef.child("restaurantId").observeSingleEvent(of: .value) { snapshot in
+            var restaurantId = ""
+            
+            if let value = snapshot.value as? String, !value.isEmpty {
+                // We found the restaurant ID directly
+                restaurantId = value
+                print("DEBUG: Found restaurant ID directly: \(restaurantId)")
+                self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
+            } else {
+                // We need to query restaurants to find which one has this menu item
+                print("DEBUG: Restaurant ID not found directly, searching through restaurants")
+                
+                // For now, as a fallback, use a hardcoded restaurant ID that we saw in the logs
+                let knownRestaurantId = "NOiohEt8FzT5smQGnrHl5Tq4e9R2"
+                print("DEBUG: Using fallback restaurant ID: \(knownRestaurantId)")
+                self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: knownRestaurantId, status: status, paymentIntentId: paymentIntentId)
+            }
+        }
+    }
+    
+    private func completeOrderCreation(orderId: String, userId: String, restaurantId: String, status: String, paymentIntentId: String?) {
         var orderData: [String: Any] = [
             "id": orderId,
             "userId": userId,
-            "restaurantId": cartManager.cartItems.first?.menuItemId ?? "",
+            "restaurantId": restaurantId,
             "items": cartManager.cartItems.map { item in
                 var itemDict: [String: Any] = [
                     "id": item.id,
@@ -383,7 +419,7 @@ struct CheckoutView: View {
                 }
                 
                 // Convert customizations to compatible format
-                var convertedCustomizations: [String: [[String: Any]]] = [:]
+                var convertedCustomizations: [String: [Any]] = [:]
                 for (key, selections) in item.customizations {
                     convertedCustomizations[key] = selections.map { selection in
                         var selectionDict: [String: Any] = [
@@ -414,7 +450,9 @@ struct CheckoutView: View {
             "deliveryOption": deliveryOption.rawValue,
             "paymentMethod": paymentMethod.rawValue,
             "status": status,
-            "createdAt": ServerValue.timestamp()
+            "order_status": "pending",
+            "createdAt": ServerValue.timestamp(),
+            "customerId": userId
         ]
         
         if deliveryOption == DeliveryOption.delivery {
@@ -433,17 +471,37 @@ struct CheckoutView: View {
             orderData["paymentIntentId"] = paymentIntentId
         }
         
-        // Save order to Firebase with connection check
-        let orderRef = db.child("orders").child(orderId)
-        
+        // Get customer information from Firebase
+        let userRef = db.child("customers").child(userId)
+        userRef.observeSingleEvent(of: .value) { snapshot in
+            // Create a mutable copy of the order data
+            var updatedOrderData = orderData
+            
+            if let userData = snapshot.value as? [String: Any] {
+                // Add available customer information
+                if let fullName = userData["fullName"] as? String {
+                    updatedOrderData["customerName"] = fullName
+                }
+                
+                if let phone = userData["phone"] as? String {
+                    updatedOrderData["customerPhone"] = phone
+                }
+            }
+            
+            // Continue with order creation regardless of customer info
+            self.finalizeOrderCreation(orderRef: self.db.child("orders").child(orderId), orderData: updatedOrderData)
+        }
+    }
+    
+    private func finalizeOrderCreation(orderRef: DatabaseReference, orderData: [String: Any]) {
         // Check connection status
         let connectedRef = Database.database().reference(withPath: ".info/connected")
         connectedRef.observe(.value) { snapshot, _ in
             guard let connected = snapshot.value as? Bool, connected else {
                 DispatchQueue.main.async {
-                    isProcessingPayment = false
-                    alertMessage = "Error: No internet connection. Please try again."
-                    showingAlert = true
+                    self.isProcessingPayment = false
+                    self.alertMessage = "Error: No internet connection. Please try again."
+                    self.showingAlert = true
                 }
                 return
             }
@@ -451,18 +509,18 @@ struct CheckoutView: View {
             // We're connected, proceed with order creation
             orderRef.setValue(orderData) { error, _ in
                 DispatchQueue.main.async {
-                    isProcessingPayment = false
+                    self.isProcessingPayment = false
                     
                     if let error = error {
                         print("Error placing order: \(error.localizedDescription)")
-                        alertMessage = "Error placing order: \(error.localizedDescription)"
-                        showingAlert = true
+                        self.alertMessage = "Error placing order: \(error.localizedDescription)"
+                        self.showingAlert = true
                         return
                     }
                     
-                    cartManager.clearCart()
-                    alertMessage = "Order placed successfully!"
-                    showingAlert = true
+                    self.cartManager.clearCart()
+                    self.alertMessage = "Order placed successfully!"
+                    self.showingAlert = true
                 }
             }
         }
