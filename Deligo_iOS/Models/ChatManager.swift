@@ -9,7 +9,7 @@ class ChatManager: ObservableObject {
     
     private let db = Database.database().reference()
     private let userId: String
-    private let userName: String
+    private var userName: String
     private let isAdmin: Bool
     private var chatRef: DatabaseReference
     private var threadsRef: DatabaseReference
@@ -20,6 +20,11 @@ class ChatManager: ObservableObject {
         self.isAdmin = isAdmin
         self.chatRef = db.child("chat_management").child("messages")
         self.threadsRef = db.child("chat_management").child("threads")
+    }
+    
+    // Allow updating the user name after initialization
+    func updateUserName(_ name: String) {
+        self.userName = name
     }
     
     // Load messages for a specific chat thread
@@ -62,7 +67,7 @@ class ChatManager: ObservableObject {
     }
     
     // Send a new message
-    func sendMessage(threadId: String, message: String, completion: @escaping (Bool) -> Void) {
+    func sendMessage(threadId: String, message: String, userRole: String = "Customer", completion: @escaping (Bool) -> Void) {
         guard !userId.isEmpty, !message.isEmpty else {
             error = "Invalid user ID or empty message"
             completion(false)
@@ -89,14 +94,15 @@ class ChatManager: ObservableObject {
             "unreadCount": ServerValue.increment(isAdmin ? 1 : 0) // Increment unread count if admin is sending
         ]
         
-        // If this is a new thread from a customer, create the thread
+        // If this is a new thread from a user, create the thread
         if !isAdmin && !threadExists(threadId: threadId) {
             let newThread: [String: Any] = [
                 "customerId": userId,
                 "customerName": userName,
                 "lastMessage": message,
                 "lastMessageTimestamp": timestamp,
-                "unreadCount": 0
+                "unreadCount": 0,
+                "userRole": userRole // Store the user role
             ]
             threadsRef.child(threadId).setValue(newThread)
         } else {

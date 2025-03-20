@@ -31,9 +31,18 @@ struct AdminChatDetailView: View {
                 VStack(alignment: .leading) {
                     Text(thread.customerName)
                         .font(.headline)
-                    Text("Customer ID: \(thread.customerId)")
+                    Text("ID: \(thread.customerId)")
                         .font(.caption)
                         .foregroundColor(.gray)
+                    Text("Role: \(thread.userRole)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(.vertical, 2)
+                        .padding(.horizontal, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.blue.opacity(0.1))
+                        )
                 }
                 .padding()
                 
@@ -78,7 +87,7 @@ struct AdminChatDetailView: View {
             }
             .padding()
         }
-        .navigationTitle("Chat with \(thread.customerName)")
+        .navigationTitle("Chat with \(thread.customerName) (\(thread.userRole))")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadMessages()

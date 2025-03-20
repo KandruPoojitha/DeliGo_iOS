@@ -161,8 +161,8 @@ struct RestaurantAccountView: View {
                     }
                 }
                 
-                Section(header: Text("Customer Support")) {
-                    NavigationLink(destination: AdminChatListView(authViewModel: authViewModel)) {
+                Section(header: Text("Admin Support")) {
+                    NavigationLink(destination: RestaurantChatView(authViewModel: authViewModel)) {
                         HStack {
                             Image(systemName: "message.fill")
                             Text("Support Messages")
