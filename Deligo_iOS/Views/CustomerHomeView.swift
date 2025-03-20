@@ -275,21 +275,13 @@ struct MainCustomerView: View {
                 }
                 .tag(3)
             
-            // Account Tab
+            // Account Tab (now last tab)
             CustomerAccountView(authViewModel: authViewModel)
                 .tabItem {
                     Image(systemName: "person.fill")
                     Text("Account")
                 }
                 .tag(4)
-            
-            // Support Chat Tab
-            CustomerChatView(authViewModel: authViewModel)
-                .tabItem {
-                    Image(systemName: "message.fill")
-                    Text("Support")
-                }
-                .tag(5)
         }
         .accentColor(Color(hex: "F4A261"))
         .onAppear {
