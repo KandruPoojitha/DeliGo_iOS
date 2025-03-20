@@ -377,7 +377,7 @@ struct DriverAccountView: View {
                         Text("Help Center View")
                     }
                     NavigationLink("Contact Support") {
-                        Text("Contact Support View")
+                        DriverChatView(authViewModel: authViewModel)
                     }
                 }
                 
