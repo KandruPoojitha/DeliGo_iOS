@@ -77,7 +77,7 @@ struct CustomerAccountView: View {
                     }
                 }
             }
-            .navigationTitle("Account")
+                .navigationTitle("Account")
             .sheet(isPresented: $isEditingProfile) {
                 EditProfileView(
                     authViewModel: authViewModel,
