@@ -3,30 +3,262 @@ import FirebaseDatabase
 
 struct DriverHomeView: View {
     @ObservedObject var authViewModel: AuthViewModel
-    @State private var selectedTab = 0
+    @StateObject private var ordersViewModel: DriverOrdersViewModel
+    @State private var selectedOrder: DriverOrder?
+    @State private var showingDeliveryTimeSheet = false
+    @State private var estimatedMinutes: String = ""
+    
+    init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+        self._ordersViewModel = StateObject(wrappedValue: DriverOrdersViewModel(driverId: authViewModel.currentUserId ?? ""))
+    }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DriverDashboardView(authViewModel: authViewModel)
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("Home")
+        NavigationView {
+            ZStack {
+                if ordersViewModel.isLoading {
+                    ProgressView()
+                } else if ordersViewModel.assignedOrders.isEmpty {
+                    EmptyOrdersView()
+                } else {
+                    OrdersList()
                 }
-                .tag(0)
+            }
+            .navigationTitle("Available Orders")
+            .refreshable {
+                ordersViewModel.loadAssignedOrders()
+            }
+            .alert("Error", isPresented: .constant(ordersViewModel.error != nil)) {
+                Button("OK") {
+                    ordersViewModel.error = nil
+                }
+            } message: {
+                if let error = ordersViewModel.error {
+                    Text(error)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func OrdersList() -> some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(ordersViewModel.assignedOrders) { order in
+                    OrderCard(order: order)
+                        .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+    }
+    
+    private func OrderCard(order: DriverOrder) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Order Header
+            HStack {
+                Text("#\(order.id.prefix(8))")
+                    .font(.headline)
+                Spacer()
+                StatusBadge(status: getOrderStatus(from: order.status))
+            }
             
-            DriverOrdersView(authViewModel: authViewModel)
-                .tabItem {
-                    Image(systemName: "list.bullet")
-                    Text("Orders")
-                }
-                .tag(1)
+            Divider()
             
-            DriverAccountView(authViewModel: authViewModel)
-                .tabItem {
-                    Image(systemName: "person.fill")
-                    Text("Account")
+            // Restaurant Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(order.restaurantName)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text(order.restaurantAddress)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            
+            // Delivery Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Delivery to:")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                Text(order.deliveryAddress)
+                    .font(.subheadline)
+            }
+            
+            // Order Items
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Items:")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                ForEach(order.items) { item in
+                    HStack {
+                        Text("\(item.quantity)x")
+                            .foregroundColor(.gray)
+                        Text(item.name)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", item.totalPrice))")
+                            .foregroundColor(.gray)
+                    }
+                    .font(.subheadline)
                 }
-                .tag(2)
+            }
+            
+            Divider()
+            
+            // Total and Actions
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Total")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    Text("$\(String(format: "%.2f", order.total))")
+                        .font(.headline)
+                }
+                
+                Spacer()
+                
+                ActionButtons(order: order)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
+    }
+    
+    // Helper function to convert string status to OrderStatus enum
+    private func getOrderStatus(from statusString: String) -> OrderStatus {
+        return OrderStatus(rawValue: statusString) ?? .pending
+    }
+    
+    private func StatusBadge(status: OrderStatus) -> some View {
+        Text(status.displayText)
+            .font(.caption)
+            .fontWeight(.medium)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color(hex: status.color).opacity(0.2))
+            .foregroundColor(Color(hex: status.color))
+            .cornerRadius(8)
+    }
+    
+    @ViewBuilder
+    private func ActionButtons(order: DriverOrder) -> some View {
+        HStack(spacing: 8) {
+            let orderStatus = getOrderStatus(from: order.status)
+            
+            switch orderStatus {
+            case .pending:
+                Button(action: {
+                    ordersViewModel.updateOrderStatus(orderId: order.id, status: .accepted)
+                }) {
+                    Text("Accept")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                }
+                
+            case .accepted:
+                Button(action: {
+                    ordersViewModel.updateOrderStatus(orderId: order.id, status: .pickedUp)
+                }) {
+                    Text("Picked Up")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.purple)
+                        .cornerRadius(8)
+                }
+                
+            case .pickedUp:
+                Button(action: {
+                    selectedOrder = order
+                    showingDeliveryTimeSheet = true
+                }) {
+                    Text("Start Delivery")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                }
+                
+            case .delivering:
+                Button(action: {
+                    ordersViewModel.updateOrderStatus(orderId: order.id, status: .delivered)
+                }) {
+                    Text("Complete")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                }
+                
+            default:
+                EmptyView()
+            }
+        }
+        .sheet(isPresented: $showingDeliveryTimeSheet) {
+            DeliveryTimeSheet(order: selectedOrder!, isPresented: $showingDeliveryTimeSheet, ordersViewModel: ordersViewModel)
+        }
+    }
+}
+
+struct EmptyOrdersView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "cube.box")
+                .font(.system(size: 50))
+                .foregroundColor(.gray)
+            Text("No Orders Available")
+                .font(.title2)
+                .fontWeight(.medium)
+            Text("New orders will appear here")
+                .foregroundColor(.gray)
+        }
+    }
+}
+
+struct DeliveryTimeSheet: View {
+    let order: DriverOrder
+    @Binding var isPresented: Bool
+    @ObservedObject var ordersViewModel: DriverOrdersViewModel
+    @State private var estimatedMinutes: String = ""
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Estimated Delivery Time")) {
+                    TextField("Minutes", text: $estimatedMinutes)
+                        .keyboardType(.numberPad)
+                }
+                
+                Section {
+                    Button("Start Delivery") {
+                        if let minutes = Int(estimatedMinutes) {
+                            ordersViewModel.estimateDeliveryTime(orderId: order.id, minutes: minutes)
+                            ordersViewModel.updateOrderStatus(orderId: order.id, status: .delivering)
+                            isPresented = false
+                        }
+                    }
+                    .disabled(estimatedMinutes.isEmpty)
+                }
+            }
+            .navigationTitle("Delivery Estimate")
+            .navigationBarItems(trailing: Button("Cancel") {
+                isPresented = false
+            })
         }
     }
 }
