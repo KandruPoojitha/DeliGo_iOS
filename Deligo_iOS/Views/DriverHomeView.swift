@@ -347,53 +347,7 @@ struct DriverOrdersView: View {
     }
 }
 
-// Account tab view
-struct DriverAccountView: View {
-    @ObservedObject var authViewModel: AuthViewModel
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("Profile")) {
-                    NavigationLink("Personal Information") {
-                        Text("Personal Information View")
-                    }
-                    NavigationLink("Vehicle Information") {
-                        Text("Vehicle Information View")
-                    }
-                }
-                
-                Section(header: Text("Earnings")) {
-                    NavigationLink("Payment History") {
-                        Text("Payment History View")
-                    }
-                    NavigationLink("Bank Details") {
-                        Text("Bank Details View")
-                    }
-                }
-                
-                Section(header: Text("Support")) {
-                    NavigationLink("Help Center") {
-                        Text("Help Center View")
-                    }
-                    NavigationLink("Contact Support") {
-                        DriverChatView(authViewModel: authViewModel)
-                    }
-                }
-                
-                Section {
-                    Button(action: {
-                        authViewModel.logout()
-                    }) {
-                        Text("Logout")
-                            .foregroundColor(.red)
-                    }
-                }
-            }
-            .navigationTitle("Account")
-        }
-    }
-}
+// Note: DriverAccountView has been moved to its own file: DriverAccountView.swift
 
 // Keep existing AvailableOrderCard struct
 struct AvailableOrderCard: View {

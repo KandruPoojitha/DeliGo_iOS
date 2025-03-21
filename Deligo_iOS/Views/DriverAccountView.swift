@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseDatabase
 import FirebaseAuth
 
-struct CustomerAccountView: View {
+struct DriverAccountView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var isEditingProfile = false
     @State private var fullName = ""
@@ -11,7 +11,6 @@ struct CustomerAccountView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = true
-    @State private var navigateToLogin = false
     
     var body: some View {
         NavigationView {
@@ -50,21 +49,41 @@ struct CustomerAccountView: View {
                         }
                     }
                     
+                    // Driver Specific Sections
+                    Section(header: Text("Driver Account")) {
+                        NavigationLink("Vehicle Information") {
+                            Text("Vehicle Information View")
+                        }
+                        
+                        NavigationLink("Delivery Preferences") {
+                            Text("Delivery Preferences View")
+                        }
+                    }
+                    
+                    Section(header: Text("Earnings")) {
+                        NavigationLink("Payment History") {
+                            Text("Payment History View")
+                        }
+                        
+                        NavigationLink("Bank Details") {
+                            Text("Bank Details View")
+                        }
+                    }
+                    
                     // Support
                     Section(header: Text("Support")) {
-                        NavigationLink(destination: CustomerChatView(authViewModel: authViewModel)) {
+                        NavigationLink(destination: DriverChatView(authViewModel: authViewModel)) {
                             Label("Contact Support", systemImage: "message")
                         }
                         
-                        NavigationLink(destination: FAQView()) {
-                            Label("FAQ", systemImage: "questionmark.circle")
+                        NavigationLink("Help Center") {
+                            Text("Help Center View")
                         }
                     }
                     
                     // Logout Button
                     Section {
                         Button(action: {
-                            print("DEBUG: Customer logging out")
                             authViewModel.logout()
                         }) {
                             HStack {
@@ -79,7 +98,7 @@ struct CustomerAccountView: View {
             }
             .navigationTitle("Account")
             .sheet(isPresented: $isEditingProfile) {
-                EditProfileView(
+                DriverEditProfileView(
                     authViewModel: authViewModel,
                     fullName: $fullName,
                     phone: $phone,
@@ -99,37 +118,27 @@ struct CustomerAccountView: View {
                 Button("OK", role: .cancel) { }
             }
             .onAppear {
-                loadUserProfile()
-                
-                // Listen for logout notification
-                NotificationCenter.default.addObserver(
-                    forName: Notification.Name("UserDidLogout"),
-                    object: nil,
-                    queue: .main
-                ) { _ in
-                    print("DEBUG: CustomerAccountView received logout notification")
-                    navigateToLogin = true
-                }
+                loadDriverProfile()
             }
         }
     }
     
-    private func loadUserProfile() {
+    private func loadDriverProfile() {
         isLoading = true
-        guard let userId = authViewModel.currentUserId else {
+        guard let driverId = authViewModel.currentUserId else {
             isLoading = false
             return
         }
         
         let database = Database.database().reference()
         
-        // Try to load from the customers path as shown in the Firebase screenshot
-        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot in
+        // Load from the drivers path in Firebase
+        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot in
             if snapshot.exists(), let value = snapshot.value as? [String: Any] {
-                print("DEBUG: Found user data in customers path")
+                print("DEBUG: Found driver data in Firebase")
                 
-                // Extract user data from the customer record
-                self.fullName = value["fullName"] as? String ?? ""
+                // Extract driver data
+                self.fullName = value["fullName"] as? String ?? value["name"] as? String ?? ""
                 self.phone = value["phone"] as? String ?? ""
                 self.email = value["email"] as? String ?? ""
                 
@@ -138,36 +147,38 @@ struct CustomerAccountView: View {
                     self.email = user.email ?? ""
                 }
                 
+                // If name is still empty, try to get it from hours.name or other possible locations
+                if self.fullName.isEmpty {
+                    if let hours = value["hours"] as? [String: Any],
+                       let name = hours["name"] as? String {
+                        self.fullName = name
+                    }
+                }
+                
+                // If phone is still empty, try other possible locations
+                if self.phone.isEmpty {
+                    if let phone = value["phoneNumber"] as? String {
+                        self.phone = phone
+                    }
+                }
+                
                 self.isLoading = false
             } else {
-                print("DEBUG: No user data found in customers path, trying users path as fallback")
+                print("DEBUG: No driver data found in Firebase")
                 
-                // Fallback to the users path if no data found in customers
-                database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot in
-                    guard let value = snapshot.value as? [String: Any] else {
-                        print("DEBUG: No user data found in users path either")
-                        self.isLoading = false
-                        return
-                    }
-                    
-                    print("DEBUG: Found user data in users path")
-                    self.fullName = value["fullName"] as? String ?? ""
-                    self.phone = value["phone"] as? String ?? ""
-                    self.email = value["email"] as? String ?? ""
-                    
-                    // If email is still empty, try to get it from Auth
-                    if self.email.isEmpty, let user = Auth.auth().currentUser {
-                        self.email = user.email ?? ""
-                    }
-                    
-                    self.isLoading = false
+                // If no data in drivers path, try to get basic info from Auth
+                if let user = Auth.auth().currentUser {
+                    self.email = user.email ?? ""
+                    self.fullName = user.displayName ?? ""
                 }
+                
+                self.isLoading = false
             }
         }
     }
 }
 
-struct EditProfileView: View {
+struct DriverEditProfileView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @Binding var fullName: String
     @Binding var phone: String
@@ -181,14 +192,14 @@ struct EditProfileView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Profile Information")) {
+                Section(header: Text("Driver Information")) {
                     TextField("Full Name", text: $localName)
                     TextField("Phone Number", text: $localPhone)
                         .keyboardType(.phonePad)
                 }
                 
                 Section {
-                    Button(action: updateProfile) {
+                    Button(action: updateDriverProfile) {
                         if isLoading {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
@@ -212,63 +223,39 @@ struct EditProfileView: View {
         }
     }
     
-    private func updateProfile() {
-        guard let userId = authViewModel.currentUserId else { return }
+    private func updateDriverProfile() {
+        guard let driverId = authViewModel.currentUserId else { return }
         isLoading = true
         
         let database = Database.database().reference()
         let updates: [String: Any] = [
             "fullName": localName.trimmingCharacters(in: .whitespacesAndNewlines),
-            "phone": localPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+            "phone": localPhone.trimmingCharacters(in: .whitespacesAndNewlines),
+            "name": localName.trimmingCharacters(in: .whitespacesAndNewlines) // Update name field too
         ]
         
-        // First, check if user exists in the customers path
-        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot in
-            if snapshot.exists() {
-                print("DEBUG: Updating user data in customers path")
-                // Update in customers path
-                database.child("customers").child(userId).updateChildValues(updates) { error, _ in
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        
-                        if let error = error {
-                            print("DEBUG: Error updating customer data: \(error.localizedDescription)")
-                            self.onError(error.localizedDescription)
-                        } else {
-                            print("DEBUG: Successfully updated customer data")
-                            self.fullName = self.localName
-                            self.phone = self.localPhone
-                            self.onSuccess()
-                        }
-                    }
-                }
-            } else {
-                print("DEBUG: User not found in customers path, trying users path")
-                // Update in users path as fallback
-                database.child("users").child(userId).updateChildValues(updates) { error, _ in
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        
-                        if let error = error {
-                            print("DEBUG: Error updating user data: \(error.localizedDescription)")
-                            self.onError(error.localizedDescription)
-                        } else {
-                            print("DEBUG: Successfully updated user data")
-                            self.fullName = self.localName
-                            self.phone = self.localPhone
-                            self.onSuccess()
-                        }
-                    }
+        // Update in hours.name if it exists
+        database.child("drivers").child(driverId).child("hours").updateChildValues([
+            "name": localName.trimmingCharacters(in: .whitespacesAndNewlines)
+        ])
+        
+        // Update in driver's root
+        database.child("drivers").child(driverId).updateChildValues(updates) { error, _ in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                
+                if let error = error {
+                    print("DEBUG: Error updating driver data: \(error.localizedDescription)")
+                    self.onError(error.localizedDescription)
+                } else {
+                    print("DEBUG: Successfully updated driver data")
+                    self.fullName = self.localName
+                    self.phone = self.localPhone
+                    self.onSuccess()
                 }
             }
         }
     }
 }
 
-struct FAQView: View {
-    var body: some View {
-        Text("FAQ View")
-            .navigationTitle("FAQ")
-    }
-}
 

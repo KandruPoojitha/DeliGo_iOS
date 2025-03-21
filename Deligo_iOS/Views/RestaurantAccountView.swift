@@ -90,6 +90,16 @@ struct StoreInfo: Codable {
         self.description = ""
         self.priceRange = PriceRange()
     }
+    
+    // Add a static method to create a default StoreInfo
+    static func defaultInfo(from authViewModel: AuthViewModel) -> StoreInfo {
+        var info = StoreInfo()
+        info.name = authViewModel.fullName ?? "My Restaurant"
+        info.email = authViewModel.email ?? ""
+        info.phone = authViewModel.phone ?? ""
+        info.address = "Enter your address"
+        return info
+    }
 }
 
 struct PriceRange: Codable {
@@ -222,53 +232,102 @@ struct RestaurantAccountView: View {
     
     private func loadStoreData() {
         guard let userId = authViewModel.currentUserId else { return }
+        
+        print("DEBUG: Loading restaurant data for user: \(userId)")
+        
+        // Initialize with default values first
+        self.storeInfo = StoreInfo.defaultInfo(from: authViewModel)
+        
         let db = Database.database().reference()
         
-        // Load store hours
-        db.child("restaurants").child(userId).child("store_hours").observeSingleEvent(of: .value) { snapshot in
-            if let value = snapshot.value as? [String: Any] {
-                do {
-                    let data = try JSONSerialization.data(withJSONObject: value)
-                    let hours = try JSONDecoder().decode(StoreHours.self, from: data)
-                    self.storeHours = hours
-                } catch {
-                    print("Error decoding store hours: \(error)")
-                }
-            }
-        }
+        // Loading indicator
+        let group = DispatchGroup()
         
-        // Load store info
+        // Load store_info for address and other details
+        group.enter()
+        print("DEBUG: Fetching store_info")
         db.child("restaurants").child(userId).child("store_info").observeSingleEvent(of: .value) { snapshot in
-            if let value = snapshot.value as? [String: Any] {
-                // Directly map the values to ensure we get all fields
-                var info = StoreInfo()
-                info.name = value["name"] as? String ?? authViewModel.fullName ?? ""
-                info.phone = value["phone"] as? String ?? ""
-                info.email = value["email"] as? String ?? authViewModel.email ?? ""
-                info.description = value["description"] as? String ?? ""
-                
-                // Extract price range data
-                if let priceRangeData = value["price_range"] as? [String: Any] {
-                    let min = priceRangeData["min"] as? Int ?? 5
-                    let max = priceRangeData["max"] as? Int ?? 25
-                    info.priceRange = PriceRange(min: min, max: max)
+            defer { group.leave() }
+            
+            if snapshot.exists() {
+                print("DEBUG: Found store_info data")
+                if let value = snapshot.value as? [String: Any] {
+                    var info = StoreInfo()
+                    info.name = value["name"] as? String ?? self.authViewModel.fullName ?? "My Restaurant"
+                    info.phone = value["phone"] as? String ?? ""
+                    info.email = value["email"] as? String ?? self.authViewModel.email ?? ""
+                    info.description = value["description"] as? String ?? ""
+                    
+                    // Get the address from store_info
+                    info.address = value["address"] as? String ?? ""
+                    print("DEBUG: Loaded store_info address: \(info.address)")
+                    
+                    // Extract price range data
+                    if let priceRangeData = value["price_range"] as? [String: Any] {
+                        let min = priceRangeData["min"] as? Int ?? 5
+                        let max = priceRangeData["max"] as? Int ?? 25
+                        info.priceRange = PriceRange(min: min, max: max)
+                    }
+                    
+                    self.storeInfo = info
                 }
-                
-                self.storeInfo = info
             } else {
-                // If no store info exists yet, initialize with user's data
-                self.storeInfo = StoreInfo()
-                self.storeInfo.name = authViewModel.fullName ?? ""
-                self.storeInfo.email = authViewModel.email ?? ""
+                print("DEBUG: No store_info data found, using defaults")
             }
         }
         
-        // Load location data for address
+        // Load address from location as a fallback if store_info address is empty
+        group.enter()
+        print("DEBUG: Fetching location data for address fallback")
         db.child("restaurants").child(userId).child("location").observeSingleEvent(of: .value) { snapshot in
-            if let value = snapshot.value as? [String: Any],
-               let address = value["address"] as? String {
-                self.storeInfo.address = address
+            defer { group.leave() }
+            
+            if snapshot.exists() {
+                print("DEBUG: Found location data")
+                if let value = snapshot.value as? [String: Any],
+                   let address = value["address"] as? String, 
+                   !address.isEmpty {
+                    print("DEBUG: Found address in location: \(address)")
+                    
+                    // Only update if store_info address is empty
+                    if self.storeInfo.address.isEmpty {
+                        print("DEBUG: Using location address as store_info address is empty")
+                        self.storeInfo.address = address
+                    }
+                } else {
+                    print("DEBUG: No valid address found in location data")
+                }
+            } else {
+                print("DEBUG: No location data found")
             }
+        }
+        
+        // Load store hours
+        group.enter()
+        print("DEBUG: Fetching store hours")
+        db.child("restaurants").child(userId).child("store_hours").observeSingleEvent(of: .value) { snapshot in
+            defer { group.leave() }
+            
+            if snapshot.exists() {
+                if let value = snapshot.value as? [String: Any] {
+                    do {
+                        let data = try JSONSerialization.data(withJSONObject: value)
+                        let hours = try JSONDecoder().decode(StoreHours.self, from: data)
+                        self.storeHours = hours
+                        print("DEBUG: Successfully loaded store hours")
+                    } catch {
+                        print("ERROR: Failed to decode store hours: \(error)")
+                    }
+                }
+            } else {
+                print("DEBUG: No store hours data found")
+            }
+        }
+        
+        // Wait for all data to load
+        group.notify(queue: .main) {
+            print("DEBUG: All restaurant data loaded")
+            print("DEBUG: Final address value: \(self.storeInfo.address)")
         }
     }
 }
@@ -354,6 +413,9 @@ struct StoreInfoView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var searchResults: [GMSAutocompletePrediction] = []
     @State private var showingAddressSuggestions = false
+    @State private var errorMessage: String? = nil
+    @State private var showError = false
+    
     private let placesClient = GMSPlacesClient.shared()
     
     var body: some View {
@@ -371,9 +433,14 @@ struct StoreInfoView: View {
                     // Address field with suggestions
                     VStack(alignment: .leading, spacing: 0) {
                         TextField(appSettings.localizedString("address"), text: $storeInfo.address)
+                            .placeholder(when: storeInfo.address.isEmpty) {
+                                Text("Enter your restaurant address")
+                                    .foregroundColor(.gray)
+                                    .opacity(0.7)
+                            }
                             .onChange(of: storeInfo.address) { oldValue, newValue in
                                 if !newValue.isEmpty {
-                                    searchAddress(newValue)
+                                    searchAddressSafely(newValue)
                                     showingAddressSuggestions = true
                                 } else {
                                     showingAddressSuggestions = false
@@ -386,7 +453,7 @@ struct StoreInfoView: View {
                                 VStack(alignment: .leading) {
                                     ForEach(searchResults, id: \.placeID) { prediction in
                                         Button(action: {
-                                            selectLocation(prediction)
+                                            selectLocationSafely(prediction)
                                             showingAddressSuggestions = false
                                         }) {
                                             Text(prediction.attributedPrimaryText.string)
@@ -460,80 +527,237 @@ struct StoreInfoView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(appSettings.localizedString("save")) {
-                        saveInfo()
+                        saveInfoSafely()
                         dismiss()
+                    }
+                }
+            }
+            .alert(isPresented: $showError, content: {
+                Alert(
+                    title: Text("Error"),
+                    message: Text(errorMessage ?? "An unknown error occurred"),
+                    dismissButton: .default(Text("OK"))
+                )
+            })
+        }
+        .onAppear {
+            if storeInfo.address.isEmpty {
+                print("DEBUG: Address is empty on StoreInfoView appear")
+                // Try to load address directly if it's empty
+                if let userId = authViewModel.currentUserId {
+                    let db = Database.database().reference()
+                    
+                    // First try to get from store_info
+                    db.child("restaurants").child(userId).child("store_info").child("address").observeSingleEvent(of: .value) { snapshot in
+                        if let address = snapshot.value as? String, !address.isEmpty {
+                            print("DEBUG: Found address in store_info: \(address)")
+                            DispatchQueue.main.async {
+                                self.storeInfo.address = address
+                            }
+                        } else {
+                            print("DEBUG: No address in store_info, checking location")
+                            // Try from location as fallback
+                            db.child("restaurants").child(userId).child("location").child("address").observeSingleEvent(of: .value) { snapshot in
+                                if let address = snapshot.value as? String, !address.isEmpty {
+                                    print("DEBUG: Found address in location: \(address)")
+                                    DispatchQueue.main.async {
+                                        self.storeInfo.address = address
+                                    }
+                                } else {
+                                    print("DEBUG: No address found in any location")
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                print("DEBUG: Address is present: \(storeInfo.address)")
+            }
+        }
+    }
+    
+    private func searchAddressSafely(_ query: String) {
+        do {
+            let filter = GMSAutocompleteFilter()
+            filter.countries = ["CA"]
+            filter.types = ["address"]
+            
+            placesClient.findAutocompletePredictions(
+                fromQuery: query,
+                filter: filter,
+                sessionToken: nil
+            ) { (results, error) in
+                if let error = error {
+                    print("DEBUG: Error fetching autocomplete results: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Could not search for address: \(error.localizedDescription)"
+                        self.showError = true
+                        self.searchResults = []
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.async {
+                    self.searchResults = results ?? []
+                }
+            }
+        } catch {
+            print("DEBUG: Error during address search: \(error.localizedDescription)")
+            self.errorMessage = "Error searching for address"
+            self.showError = true
+        }
+    }
+    
+    private func selectLocationSafely(_ prediction: GMSAutocompletePrediction) {
+        do {
+            let fields: GMSPlaceField = [.name, .formattedAddress, .coordinate]
+            
+            placesClient.fetchPlace(
+                fromPlaceID: prediction.placeID,
+                placeFields: fields,
+                sessionToken: nil
+            ) { (place, error) in
+                if let error = error {
+                    print("DEBUG: Error fetching place details: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Could not get address details: \(error.localizedDescription)"
+                        self.showError = true
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.async {
+                    if let place = place {
+                        let formattedAddress = place.formattedAddress ?? prediction.attributedPrimaryText.string
+                        print("DEBUG: Selected address: \(formattedAddress)")
+                        storeInfo.address = formattedAddress
+                        
+                        // Save location data
+                        guard let userId = authViewModel.currentUserId else { return }
+                        let db = Database.database().reference()
+                        
+                        let locationData: [String: Any] = [
+                            "name": place.name ?? "",
+                            "address": formattedAddress,
+                            "latitude": place.coordinate.latitude,
+                            "longitude": place.coordinate.longitude
+                        ]
+                        
+                        db.child("restaurants").child(userId).child("location").setValue(locationData)
+                    }
+                }
+            }
+        } catch {
+            print("DEBUG: Error during location selection: \(error.localizedDescription)")
+            self.errorMessage = "Error selecting location"
+            self.showError = true
+        }
+    }
+    
+    private func saveInfoSafely() {
+        do {
+            if storeInfo.address.isEmpty {
+                self.errorMessage = "Please enter an address for your restaurant"
+                self.showError = true
+                return
+            }
+            
+            // Use the existing saveInfo functionality
+            saveInfo()
+        } catch {
+            print("DEBUG: Error during save: \(error.localizedDescription)")
+            self.errorMessage = "Error saving information"
+            self.showError = true
+        }
+    }
+    
+    private func saveInfo() {
+        guard let userId = authViewModel.currentUserId else { 
+            print("ERROR: Cannot save - user ID is missing")
+            return 
+        }
+        
+        print("DEBUG: Saving store info for user: \(userId)")
+        print("DEBUG: Address being saved: \(storeInfo.address)")
+        
+        // Check if address is empty and show alert if it is
+        if storeInfo.address.isEmpty || storeInfo.address == "Enter your address" {
+            // Show an alert to the user about the missing address
+            errorMessage = "Please enter a valid address for your restaurant"
+            showError = true
+            return
+        }
+        
+        let db = Database.database().reference()
+        
+        // Save to store_info node
+        do {
+            let data = try JSONEncoder().encode(storeInfo)
+            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                // Make sure address is explicitly included in the dictionary
+                var updatedDict = dict
+                updatedDict["address"] = storeInfo.address
+                
+                db.child("restaurants").child(userId).child("store_info").setValue(updatedDict) { error, _ in
+                    if let error = error {
+                        print("ERROR: Failed to save store info: \(error.localizedDescription)")
+                        DispatchQueue.main.async {
+                            self.errorMessage = "Could not save store info: \(error.localizedDescription)"
+                            self.showError = true
+                        }
+                    } else {
+                        print("DEBUG: Successfully saved store info with address: \(self.storeInfo.address)")
+                    }
+                }
+            }
+        } catch {
+            print("ERROR: Failed to encode store info: \(error)")
+            self.errorMessage = "Error preparing store info for saving"
+            self.showError = true
+        }
+        
+        // Also update the address in the location node
+        // First check if location node exists
+        db.child("restaurants").child(userId).child("location").observeSingleEvent(of: .value) { snapshot in
+            if var locationData = snapshot.value as? [String: Any] {
+                // Location exists, update the address
+                locationData["address"] = self.storeInfo.address
+                db.child("restaurants").child(userId).child("location").updateChildValues(locationData) { error, _ in
+                    if let error = error {
+                        print("ERROR: Failed to update location address: \(error.localizedDescription)")
+                    } else {
+                        print("DEBUG: Updated address in location node")
+                    }
+                }
+            } else {
+                // Location doesn't exist, create a basic entry
+                let basicLocationData: [String: Any] = [
+                    "address": self.storeInfo.address,
+                    "name": self.storeInfo.name,
+                    "latitude": 0.0,
+                    "longitude": 0.0
+                ]
+                db.child("restaurants").child(userId).child("location").setValue(basicLocationData) { error, _ in
+                    if let error = error {
+                        print("ERROR: Failed to create location entry: \(error.localizedDescription)")
+                    } else {
+                        print("DEBUG: Created new location entry with address")
                     }
                 }
             }
         }
     }
-    
-    private func searchAddress(_ query: String) {
-        let filter = GMSAutocompleteFilter()
-        filter.countries = ["CA"] // Restrict to Canada
-        filter.types = ["address"] // Only show address results
+}
+
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
         
-        placesClient.findAutocompletePredictions(
-            fromQuery: query,
-            filter: filter,
-            sessionToken: nil
-        ) { (results, error) in
-            if let error = error {
-                print("Error fetching autocomplete results: \(error.localizedDescription)")
-                return
-            }
-            
-            DispatchQueue.main.async {
-                self.searchResults = results ?? []
-            }
-        }
-    }
-    
-    private func selectLocation(_ prediction: GMSAutocompletePrediction) {
-        let fields: GMSPlaceField = [.name, .formattedAddress, .coordinate]
-        
-        placesClient.fetchPlace(
-            fromPlaceID: prediction.placeID,
-            placeFields: fields,
-            sessionToken: nil
-        ) { (place, error) in
-            if let error = error {
-                print("Error fetching place details: \(error.localizedDescription)")
-                return
-            }
-            
-            DispatchQueue.main.async {
-                if let place = place {
-                    storeInfo.address = place.formattedAddress ?? prediction.attributedPrimaryText.string
-                    
-                    // Save location data
-                    guard let userId = authViewModel.currentUserId else { return }
-                    let db = Database.database().reference()
-                    
-                    let locationData: [String: Any] = [
-                        "name": place.name ?? "",
-                        "address": place.formattedAddress ?? "",
-                        "latitude": place.coordinate.latitude,
-                        "longitude": place.coordinate.longitude
-                    ]
-                    
-                    db.child("restaurants").child(userId).child("location").setValue(locationData)
-                }
-            }
-        }
-    }
-    
-    private func saveInfo() {
-        guard let userId = authViewModel.currentUserId else { return }
-        let db = Database.database().reference()
-        
-        do {
-            let data = try JSONEncoder().encode(storeInfo)
-            if let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                db.child("restaurants").child(userId).child("store_info").setValue(dict)
-            }
-        } catch {
-            print("Error saving store info: \(error)")
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
         }
     }
 }

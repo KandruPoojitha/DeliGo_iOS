@@ -77,11 +77,26 @@ class ChatManager: ObservableObject {
         let messageId = chatRef.child(threadId).childByAutoId().key ?? UUID().uuidString
         let timestamp = Date().timeIntervalSince1970 * 1000
         
+        // Determine the correct sender type based on userRole
+        let senderType: ChatMessage.SenderType
+        if isAdmin {
+            senderType = .admin
+        } else {
+            switch userRole {
+            case "Restaurant":
+                senderType = .restaurant
+            case "Driver":
+                senderType = .driver
+            default:
+                senderType = .customer
+            }
+        }
+        
         let newMessage = ChatMessage(
             id: messageId,
             senderId: userId,
             senderName: userName,
-            senderType: isAdmin ? .admin : .customer,
+            senderType: senderType,
             message: message,
             timestamp: timestamp,
             isRead: false

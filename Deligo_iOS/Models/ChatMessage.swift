@@ -12,6 +12,8 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     
     enum SenderType: String, Codable {
         case customer
+        case restaurant
+        case driver
         case admin
     }
     

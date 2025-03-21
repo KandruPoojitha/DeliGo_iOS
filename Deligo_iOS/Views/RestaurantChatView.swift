@@ -45,7 +45,7 @@ struct RestaurantChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatManager.messages) { message in
-                            RestaurantMessageBubble(message: message, isFromCurrentUser: message.senderType != .admin)
+                            RestaurantMessageBubble(message: message, isFromCurrentUser: message.senderType == .restaurant)
                         }
                     }
                     .padding()

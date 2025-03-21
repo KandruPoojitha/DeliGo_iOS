@@ -215,6 +215,13 @@ class AuthViewModel: ObservableObject {
             documentStatus = .notSubmitted
             fullName = nil
             phoneNumber = nil
+            
+            // Post a notification to indicate logout
+            print("DEBUG: User logged out, posting notification")
+            NotificationCenter.default.post(
+                name: Notification.Name("UserDidLogout"),
+                object: nil
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
