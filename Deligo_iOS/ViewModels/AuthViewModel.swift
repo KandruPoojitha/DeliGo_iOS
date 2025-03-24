@@ -208,20 +208,23 @@ class AuthViewModel: ObservableObject {
     }
     
     func logout() {
+        // First reset all user data
+        isAuthenticated = false
+        currentUserRole = nil
+        documentStatus = .notSubmitted
+        fullName = nil
+        phoneNumber = nil
+        
+        // Post a notification to indicate logout
+        print("DEBUG: User logged out, posting notification")
+        NotificationCenter.default.post(
+            name: Notification.Name("UserDidLogout"),
+            object: nil
+        )
+        
+        // Now sign out from Firebase Auth last
         do {
             try auth.signOut()
-            isAuthenticated = false
-            currentUserRole = nil
-            documentStatus = .notSubmitted
-            fullName = nil
-            phoneNumber = nil
-            
-            // Post a notification to indicate logout
-            print("DEBUG: User logged out, posting notification")
-            NotificationCenter.default.post(
-                name: Notification.Name("UserDidLogout"),
-                object: nil
-            )
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -41,8 +41,6 @@ class CustomLocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         locationManager.stopUpdatingLocation()
     }
     
-    // MARK: - CLLocationManagerDelegate
-    
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         print("DEBUG: Location authorization changed to: \(manager.authorizationStatus.rawValue)")
         DispatchQueue.main.async {

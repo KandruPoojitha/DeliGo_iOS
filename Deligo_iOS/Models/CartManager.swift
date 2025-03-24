@@ -13,10 +13,17 @@ class CartManager: ObservableObject {
     init(userId: String) {
         self.userId = userId
         self.db = Database.database().reference()
-        self.cartRef = self.db.child("customers").child(userId).child("cart")
         
-        print("CartManager initialized with userId: \(userId)")
-        loadCartItems()
+        if userId.isEmpty {
+            // Create a dummy reference that won't be used
+            self.cartRef = self.db.child("temp_cart")
+            print("CartManager initialized with empty userId. Using temporary reference.")
+            // Don't load cart items for empty userId
+        } else {
+            self.cartRef = self.db.child("customers").child(userId).child("cart")
+            print("CartManager initialized with userId: \(userId)")
+            loadCartItems()
+        }
     }
     
     func loadCartItems() {

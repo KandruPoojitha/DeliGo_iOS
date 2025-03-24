@@ -66,6 +66,7 @@ struct CustomerAccountView: View {
                         Button(action: {
                             print("DEBUG: Customer logging out")
                             authViewModel.logout()
+                            navigateToLogin = true
                         }) {
                             HStack {
                                 Spacer()
@@ -77,7 +78,7 @@ struct CustomerAccountView: View {
                     }
                 }
             }
-                .navigationTitle("Account")
+            .navigationTitle("Account")
             .sheet(isPresented: $isEditingProfile) {
                 EditProfileView(
                     authViewModel: authViewModel,
@@ -100,16 +101,9 @@ struct CustomerAccountView: View {
             }
             .onAppear {
                 loadUserProfile()
-                
-                // Listen for logout notification
-                NotificationCenter.default.addObserver(
-                    forName: Notification.Name("UserDidLogout"),
-                    object: nil,
-                    queue: .main
-                ) { _ in
-                    print("DEBUG: CustomerAccountView received logout notification")
-                    navigateToLogin = true
-                }
+            }
+            .fullScreenCover(isPresented: $navigateToLogin) {
+                LoginView()
             }
         }
     }

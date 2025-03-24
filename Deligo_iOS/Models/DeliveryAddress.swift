@@ -25,13 +25,20 @@ struct DeliveryAddress: Codable {
     }
     
     var formattedAddress: String {
-        var components: [String] = [streetAddress]
+        var components: [String] = []
         
-        if let unit = unit {
+        if !streetAddress.isEmpty {
+            components.append(streetAddress)
+        }
+        
+        if let unit = unit, !unit.isEmpty {
             components.append("Unit \(unit)")
         }
         
-        components.append("\(city), \(state) \(zipCode)")
+        let locationParts = [city, state, zipCode].filter { !$0.isEmpty }
+        if !locationParts.isEmpty {
+            components.append(locationParts.joined(separator: ", "))
+        }
         
         return components.joined(separator: ", ")
     }
