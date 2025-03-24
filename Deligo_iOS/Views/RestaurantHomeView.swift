@@ -920,7 +920,7 @@ struct OrderCard: View {
                         .font(.subheadline)
                         .foregroundColor(.gray)
                 } else {
-                    Text(order.address.formattedAddress)
+                    Text("\(order.address.streetAddress), \(order.address.city), \(order.address.state) \(order.address.zipCode)")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                 }
