@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseDatabase
+import Foundation
 
 struct CustomerCartView: View {
     @ObservedObject var authViewModel: AuthViewModel

@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseDatabase
 import StripePaymentSheet
 import GooglePlaces
+import Foundation
 
 struct CheckoutView: View {
     @ObservedObject var cartManager: CartManager

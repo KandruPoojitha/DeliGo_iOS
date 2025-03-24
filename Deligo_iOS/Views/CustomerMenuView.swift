@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseDatabase
+import Foundation
 
 struct CustomerMenuView: View {
     @State private var menuItems: [MenuItem] = []
