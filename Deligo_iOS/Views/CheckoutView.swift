@@ -11,7 +11,19 @@ struct CheckoutView: View {
     @State private var deliveryOption: DeliveryOption = DeliveryOption.delivery
     @State private var paymentMethod: PaymentMethod = PaymentMethod.card
     @State private var tipPercentage: Double = 15.0
-    @State private var deliveryAddress = DeliveryAddress(streetAddress: "", unit: "", instructions: "")
+    @State private var deliveryAddress = DeliveryAddress(
+        streetAddress: "", 
+        city: "", 
+        state: "", 
+        zipCode: "",
+        unit: nil, 
+        instructions: nil, 
+        latitude: 0.0, 
+        longitude: 0.0, 
+        placeID: ""
+    )
+    @State private var unitText: String = ""
+    @State private var instructionsText: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isProcessingPayment = false
@@ -65,6 +77,11 @@ struct CheckoutView: View {
                     }
                 }
             )
+        }
+        .onAppear {
+            // Initialize the text fields from optional values
+            unitText = deliveryAddress.unit ?? ""
+            instructionsText = deliveryAddress.instructions ?? ""
         }
     }
     
@@ -170,8 +187,11 @@ struct CheckoutView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
-                TextField("Enter unit or apartment number", text: $deliveryAddress.unit)
+                TextField("Enter unit or apartment number", text: $unitText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .onChange(of: unitText) { _, newValue in 
+                        deliveryAddress.unit = newValue.isEmpty ? nil : newValue
+                    }
             }
             
             VStack(alignment: .leading, spacing: 8) {
@@ -179,7 +199,7 @@ struct CheckoutView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
-                TextEditor(text: $deliveryAddress.instructions)
+                TextEditor(text: $instructionsText)
                     .frame(height: 100)
                     .padding(8)
                     .background(Color(.systemGray6))
@@ -188,6 +208,9 @@ struct CheckoutView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color(.systemGray4), lineWidth: 1)
                     )
+                    .onChange(of: instructionsText) { _, newValue in
+                        deliveryAddress.instructions = newValue.isEmpty ? nil : newValue
+                    }
             }
             
             Divider()
@@ -305,7 +328,7 @@ struct CheckoutView: View {
     
     private var isValidOrder: Bool {
         if deliveryOption == DeliveryOption.delivery {
-            return !deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return !deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
                 && !cartManager.cartItems.isEmpty
         }
         return !cartManager.cartItems.isEmpty
@@ -324,7 +347,7 @@ struct CheckoutView: View {
             return
         }
         
-        if deliveryOption == DeliveryOption.delivery && deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if deliveryOption == DeliveryOption.delivery && deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty {
             alertMessage = "Error: Please provide a delivery address"
             showingAlert = true
             return
@@ -456,11 +479,17 @@ struct CheckoutView: View {
         ]
         
         if deliveryOption == DeliveryOption.delivery {
-            orderData["address"] = [
-                "street": deliveryAddress.streetAddress,
-                "unit": deliveryAddress.unit,
-                "instructions": deliveryAddress.instructions
-            ]
+            var addressData: [String: Any] = ["street": deliveryAddress.streetAddress]
+            
+            if let unit = deliveryAddress.unit, !unit.isEmpty {
+                addressData["unit"] = unit
+            }
+            
+            if let instructions = deliveryAddress.instructions, !instructions.isEmpty {
+                addressData["instructions"] = instructions
+            }
+            
+            orderData["address"] = addressData
             
             // Store latitude and longitude at the root level
             orderData["latitude"] = locationSearchVM.selectedLocation?.coordinate.latitude ?? 0

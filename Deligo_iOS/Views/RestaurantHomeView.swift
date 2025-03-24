@@ -820,12 +820,12 @@ struct NewOrdersView: View {
                         print("DEBUG: 📊 restaurantId=\(updatedRestaurantId)")
                     }
                     
-                    // Notify that order status has changed
-                    DispatchQueue.main.async {
+                // Notify that order status has changed
+                DispatchQueue.main.async {
                         print("DEBUG: 📣 Posting OrderStatusChanged notification for order \(order.id)")
-                        NotificationCenter.default.post(
-                            name: Notification.Name("OrderStatusChanged"),
-                            object: nil,
+                    NotificationCenter.default.post(
+                        name: Notification.Name("OrderStatusChanged"),
+                        object: nil,
                             userInfo: [
                                 "orderId": order.id,
                                 "newStatus": "in_progress",
@@ -1873,15 +1873,27 @@ struct Order: Identifiable {
             print("DEBUG: Order \(id) has address data")
             self.address = DeliveryAddress(
                 streetAddress: addressData["street"] as? String ?? "",
+                city: addressData["city"] as? String ?? "",
+                state: addressData["state"] as? String ?? "",
+                zipCode: addressData["zipCode"] as? String ?? "",
                 unit: addressData["unit"] as? String ?? "",
-                instructions: addressData["instructions"] as? String ?? ""
+                instructions: addressData["instructions"] as? String ?? "",
+                latitude: addressData["latitude"] as? Double ?? 0.0,
+                longitude: addressData["longitude"] as? Double ?? 0.0,
+                placeID: addressData["placeID"] as? String ?? ""
             )
         } else {
             print("DEBUG: Order \(id) has NO address data")
             self.address = DeliveryAddress(
                 streetAddress: "No Address",
+                city: "",
+                state: "",
+                zipCode: "",
                 unit: "",
-                instructions: ""
+                instructions: "",
+                latitude: 0.0,
+                longitude: 0.0,
+                placeID: ""
             )
         }
         
@@ -2322,9 +2334,9 @@ struct InProgressOrdersView: View {
                         print("DEBUG: 📊 Order status=\(status), orderStatus=\(orderStatus)")
                         
                         if let order = Order(id: snapshot.key, data: dict) {
-                            inProgressOrders.append(order)
+                        inProgressOrders.append(order)
                             print("DEBUG: ✅ Successfully added order to in-progress list")
-                        }
+                    }
                     } else {
                         print("DEBUG: ❌ Order \(snapshot.key) does not meet in-progress criteria")
                     }
