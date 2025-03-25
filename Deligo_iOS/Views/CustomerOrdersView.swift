@@ -255,53 +255,126 @@ struct CustomerOrderCard: View {
                 if order.status.lowercased() == "delivered" {
                     Divider()
                     
-                    HStack(spacing: 16) {
-                        // Single Rating button that covers both restaurant and driver
-                        Button(action: { 
-                            selectedTab = 0 // Default to restaurant tab
-                            showingRatingSheet = true 
-                        }) {
-                            HStack {
-                                Image(systemName: "star")
-                                if order.restaurantRating != nil || order.driverRating != nil {
-                                    Text("View Ratings")
-                                } else {
-                                    Text("Rate Order")
+                    VStack(spacing: 12) {
+                        // Rating and reorder buttons/information
+                        HStack(spacing: 16) {
+                            // Show either rate button or rating information
+                            if order.restaurantRating == nil && order.driverRating == nil {
+                                // Rating button - neither restaurant nor driver rated yet
+                                Button(action: { 
+                                    selectedTab = 0 // Default to restaurant tab
+                                    showingRatingSheet = true 
+                                }) {
+                                    HStack {
+                                        Image(systemName: "star")
+                                        Text("Rate Order")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
+                                }
+                            } else {
+                                // View ratings button - shows ratings sheet with existing ratings
+                                Button(action: { 
+                                    selectedTab = 0 // Default to restaurant tab
+                                    showingRatingSheet = true 
+                                }) {
+                                    HStack {
+                                        Image(systemName: "star.fill")
+                                        Text("View Ratings")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
                                 }
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            
+                            // Reorder button
+                            Button(action: { showingReorderConfirmation = true }) {
+                                if isReordering {
+                                    HStack {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle())
+                                            .scaleEffect(0.8)
+                                        Text("Adding to Cart...")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color(hex: "F4A261").opacity(0.5))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                } else {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise")
+                                        Text("Reorder")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color(hex: "F4A261"))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .disabled(isReordering)
                         }
                         
-                        // Reorder button
-                        Button(action: { showingReorderConfirmation = true }) {
-                            if isReordering {
+                        // Display restaurant rating if exists
+                        if let restaurantRating = order.restaurantRating {
+                            VStack(alignment: .leading, spacing: 6) {
                                 HStack {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle())
-                                        .scaleEffect(0.8)
-                                    Text("Adding to Cart...")
+                                    Text("Restaurant Rating:")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    // Star rating display
+                                    HStack(spacing: 2) {
+                                        ForEach(1...5, id: \.self) { i in
+                                            Image(systemName: i <= restaurantRating.rating ? "star.fill" : "star")
+                                                .foregroundColor(.yellow)
+                                                .font(.caption)
+                                        }
+                                    }
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color(hex: "F4A261").opacity(0.5))
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                            } else {
-                                HStack {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("Reorder")
+                                
+                                if let comment = restaurantRating.comment, !comment.isEmpty {
+                                    Text(comment)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .lineLimit(2)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color(hex: "F4A261"))
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
                             }
+                            .padding(.horizontal, 4)
                         }
-                        .disabled(isReordering)
+                        
+                        // Display driver rating if exists
+                        if let driverRating = order.driverRating {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Driver Rating:")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    // Star rating display
+                                    HStack(spacing: 2) {
+                                        ForEach(1...5, id: \.self) { i in
+                                            Image(systemName: i <= driverRating.rating ? "star.fill" : "star")
+                                                .foregroundColor(.yellow)
+                                                .font(.caption)
+                                        }
+                                    }
+                                }
+                                
+                                if let comment = driverRating.comment, !comment.isEmpty {
+                                    Text(comment)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .lineLimit(2)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                        }
                     }
                 }
             }

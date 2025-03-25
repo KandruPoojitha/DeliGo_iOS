@@ -5,6 +5,7 @@ struct RateOrderView: View {
     let order: CustomerOrder
     @ObservedObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.presentationMode) private var presentationMode
     @State private var selectedTab: Int // 0 for restaurant, 1 for driver
     @State private var restaurantRating: Int = 0 // Start with 0 and load from Firebase
     @State private var driverRating: Int = 0 // Start with 0 and load from Firebase
@@ -16,6 +17,8 @@ struct RateOrderView: View {
     @State private var errorMessage = ""
     @State private var showSuccess = false
     @State private var successMessage = "Thank you for your feedback!"
+    @State private var canRateDriver: Bool = false
+    @State private var isDeliveryOrder: Bool = false
     
     init(order: CustomerOrder, authViewModel: AuthViewModel, initialTab: Int = 0) {
         self.order = order
@@ -31,62 +34,101 @@ struct RateOrderView: View {
                 // Tab selector for restaurant vs driver rating
                 Picker("Rating Type", selection: $selectedTab) {
                     Text("Restaurant").tag(0)
-                    Text("Driver").tag(1)
+                    if canRateDriver {
+                        Text("Driver").tag(1)
+                    }
                 }
                 .pickerStyle(SegmentedPickerStyle())
-                .padding()
-                .disabled(order.driverId == nil)
+                .padding(.horizontal)
+                .onChange(of: selectedTab) { newValue in
+                    print("Tab changed to: \(newValue)")
+                }
                 
                 if isLoading {
                     ProgressView("Loading ratings...")
                         .padding()
+                } else if selectedTab == 1 && !canRateDriver {
+                    // We're on driver tab but cannot rate driver
+                    VStack(spacing: 20) {
+                        Image(systemName: "person.fill.questionmark")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        
+                        Text("No Driver to Rate")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                        
+                        Text("This order doesn't support driver rating.")
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        Button("Rate Restaurant Instead") {
+                            selectedTab = 0
+                        }
+                        .padding()
+                        .background(Color(hex: "F4A261"))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .padding()
                 } else {
                     if selectedTab == 0 {
                         // Restaurant rating view
                         restaurantRatingView
                     } else {
-                        // Driver rating view
-                        if let driverId = order.driverId, let driverName = order.driverName {
-                            driverRatingView(driverId: driverId, driverName: driverName)
-                        } else {
-                            VStack(spacing: 20) {
-                                Image(systemName: "person.fill.questionmark")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.gray)
-                                
-                                Text("No Driver Assigned")
-                                    .font(.title2)
-                                    .fontWeight(.medium)
-                                
-                                Text("This order doesn't have a delivery driver to rate.")
-                                    .foregroundColor(.gray)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
-                            .padding()
-                        }
+                        // Driver rating view for delivery orders
+                        driverRatingView(driverId: order.driverId ?? "delivery_driver", driverName: order.driverName ?? "Delivery Driver")
                     }
                     
                     Spacer()
                     
-                    Button(action: submitRating) {
-                        if isSubmitting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
+                    Button(action: {
+                        isSubmitting = true
+                        if selectedTab == 0 {
+                            submitRating()
                         } else {
-                            Text("Submit Rating")
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(hex: "F4A261"))
-                                .cornerRadius(10)
-                                .padding(.horizontal)
+                            submitDriverRating { success in
+                                DispatchQueue.main.async {
+                                    isSubmitting = false
+                                    if success {
+                                        showSuccess = true
+                                        successMessage = "Thank you for rating the driver!"
+                                        
+                                        // Save the rating in the customer's collection
+                                        let customerId = order.userId
+                                        let driverId = order.driverId ?? "delivery_driver"
+                                        let actualDriverId = driverId.isEmpty && isDeliveryOrder ? "delivery_driver" : driverId
+                                        
+                                        let customerRatingsRef = database.child("customers/\(customerId)/ratingsAndComments/driver/\(actualDriverId)")
+                                        customerRatingsRef.setValue(["rating": driverRating, "comment": driverComment]) { error, _ in
+                                            if let error = error {
+                                                print("ERROR saving driver rating to customer profile: \(error.localizedDescription)")
+                                            } else {
+                                                print("Successfully saved driver rating to customer profile")
+                                            }
+                                        }
+                                        
+                                        // Dismiss after showing success message
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            dismiss()
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    }) {
+                        Text("Submit Rating")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(isSubmitting ? Color.gray : Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
-                    .disabled(isSubmitting || (selectedTab == 1 && order.driverId == nil) || 
-                              (selectedTab == 0 && restaurantRating == 0) || 
-                              (selectedTab == 1 && driverRating == 0))
+                    .disabled(isSubmitting || 
+                             (selectedTab == 0 && restaurantRating == 0) || 
+                             (selectedTab == 1 && driverRating == 0))
                     .padding(.bottom)
                 }
             }
@@ -112,6 +154,17 @@ struct RateOrderView: View {
                 Text(successMessage)
             }
             .onAppear {
+                // Check if this order is a delivery order
+                isDeliveryOrder = (order.deliveryOption ?? "").lowercased() == "delivery"
+                
+                // Set canRateDriver based on driver ID or if it's a delivery order
+                canRateDriver = (order.driverId != nil && !(order.driverId ?? "").isEmpty) || isDeliveryOrder
+                
+                print("Order delivery option: \(order.deliveryOption ?? "unknown")")
+                print("Is delivery order: \(isDeliveryOrder)")
+                print("Driver ID: \(order.driverId ?? "nil")")
+                print("Can rate driver: \(canRateDriver)")
+                
                 loadExistingRatings()
             }
         }
@@ -240,114 +293,107 @@ struct RateOrderView: View {
     private func submitRating() {
         isSubmitting = true
         
-        // Determine which rating to submit based on the selected tab
         if selectedTab == 0 {
-            // Submit restaurant rating
-            submitRestaurantRating { success in
-                isSubmitting = false
-                
-                if !success {
+            let restaurantRef = database.child("restaurants").child(order.restaurantId).child("ratingsandcomments")
+            
+            // Store rating under customer ID
+            let ratingRef = restaurantRef.child("rating").child(order.userId)
+            
+            ratingRef.setValue(restaurantRating) { error, _ in
+                if let error = error {
+                    self.showError = true
+                    self.errorMessage = "Failed to save restaurant rating: \(error.localizedDescription)"
+                    self.isSubmitting = false
                     return
                 }
                 
-                // If driver exists and not already submitted, ask if user wants to rate driver too
-                if let driverId = order.driverId, !driverId.isEmpty, order.driverRating == nil {
-                    // Set success message to encourage driver rating
-                    successMessage = "Restaurant rating submitted! Would you like to rate your driver too?"
-                    showSuccess = true
-                    
-                    // After success alert is dismissed, switch to driver tab
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        selectedTab = 1 // Switch to driver tab
+                // Store comment if present
+                if !self.restaurantComment.isEmpty {
+                    let commentRef = restaurantRef.child("comment").child(self.order.userId)
+                    commentRef.setValue(self.restaurantComment) { error, _ in
+                        if let error = error {
+                            self.showError = true
+                            self.errorMessage = "Failed to save restaurant comment: \(error.localizedDescription)"
+                            self.isSubmitting = false
+                            return
+                        }
+                        self.handleRatingSuccess()
                     }
                 } else {
-                    // Final success message if no driver or driver already rated
-                    successMessage = "Thank you for rating the restaurant!"
-                    showSuccess = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        dismiss()
-                    }
-                }
-            }
-        } else {
-            // Submit driver rating
-            submitDriverRating { success in
-                isSubmitting = false
-                if success {
-                    successMessage = "Thank you for rating your driver!"
-                    showSuccess = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        dismiss()
-                    }
+                    self.handleRatingSuccess()
                 }
             }
         }
     }
     
-    private func submitRestaurantRating(completion: @escaping (Bool) -> Void) {
-        guard !order.restaurantId.isEmpty else {
-            showError = true
-            errorMessage = "Restaurant ID is missing. Please try again."
-            completion(false)
-            return
+    private func handleRatingSuccess() {
+        // Save the rating in the customer's collection
+        let customerId = order.userId
+        let customerRatingsRef = database.child("customers/\(customerId)/ratingsAndComments/restaurant/\(order.restaurantId)")
+        customerRatingsRef.setValue(["rating": restaurantRating, "comment": restaurantComment]) { error, _ in
+            if let error = error {
+                print("ERROR saving restaurant rating to customer profile: \(error.localizedDescription)")
+            } else {
+                print("Successfully saved restaurant rating to customer profile")
+            }
         }
         
-        print("Submitting restaurant rating for restaurantId: \(order.restaurantId), orderId: \(order.id)")
+        // Show success message and determine next steps
+        showSuccess = true
         
-        // Save in the restaurant's ratingsandcomments collection as requested
-        let restaurantRef = database.child("restaurants").child(order.restaurantId).child("ratingsandcomments")
-        
-        // Store rating under customer ID
-        let ratingRef = restaurantRef.child("rating").child(order.userId)
-        ratingRef.setValue(restaurantRating) { error, _ in
-            if let error = error {
-                showError = true
-                errorMessage = "Failed to save rating: \(error.localizedDescription)"
-                completion(false)
-                return
-            }
+        // If we have a driver to rate and on restaurant tab, prompt to rate driver
+        if canRateDriver && selectedTab == 0 {
+            successMessage = "Thank you for rating! Would you like to rate the driver as well?"
             
-            // Store comment under customer ID if present
-            if !restaurantComment.isEmpty {
-                let commentRef = restaurantRef.child("comment").child(order.userId)
-                commentRef.setValue(restaurantComment) { error, _ in
-                    if let error = error {
-                        showError = true
-                        errorMessage = "Failed to save comment: \(error.localizedDescription)"
-                        completion(false)
-                        return
-                    }
-                    
-                    completion(true)
-                }
-            } else {
-                completion(true)
+            // Switch to driver tab after showing message
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                print("Switching to driver tab after restaurant rating")
+                selectedTab = 1 // Switch to driver tab
+                isSubmitting = false
+            }
+        } else {
+            // No driver to rate or already on driver tab
+            successMessage = "Thank you for your rating!"
+            
+            // Dismiss after delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                isSubmitting = false
+                dismiss()
             }
         }
     }
     
     private func submitDriverRating(completion: @escaping (Bool) -> Void) {
-        guard let driverId = order.driverId, !driverId.isEmpty else {
+        // For delivery orders without a specific driver ID, use a generic ID
+        let driverId = order.driverId ?? "delivery_driver"
+        
+        if driverId.isEmpty && !isDeliveryOrder {
             showError = true
             errorMessage = "Driver ID is missing. Please try again or contact support."
+            print("ERROR: Cannot submit driver rating - missing driver ID and not a delivery order")
             completion(false)
             return
         }
         
-        print("Submitting driver rating for driverId: \(driverId), orderId: \(order.id)")
+        let actualDriverId = driverId.isEmpty ? "delivery_driver" : driverId
+        
+        print("Submitting driver rating for driverId: \(actualDriverId), orderId: \(order.id), rating: \(driverRating), comment: \(driverComment.isEmpty ? "None" : driverComment)")
         
         // Save in the driver's ratingsandcomments collection as requested
-        let driverRef = database.child("drivers").child(driverId).child("ratingsandcomments")
+        let driverRef = database.child("drivers").child(actualDriverId).child("ratingsandcomments")
         
         // Store rating under customer ID
         let ratingRef = driverRef.child("rating").child(order.userId)
         ratingRef.setValue(driverRating) { error, _ in
             if let error = error {
                 showError = true
-                errorMessage = "Failed to save rating: \(error.localizedDescription)"
+                errorMessage = "Failed to save driver rating: \(error.localizedDescription)"
+                print("ERROR saving driver rating: \(error.localizedDescription)")
                 completion(false)
                 return
             }
+            
+            print("Successfully saved driver rating: \(driverRating)")
             
             // Store comment under customer ID if present
             if !driverComment.isEmpty {
@@ -355,15 +401,47 @@ struct RateOrderView: View {
                 commentRef.setValue(driverComment) { error, _ in
                     if let error = error {
                         showError = true
-                        errorMessage = "Failed to save comment: \(error.localizedDescription)"
+                        errorMessage = "Failed to save driver comment: \(error.localizedDescription)"
+                        print("ERROR saving driver comment: \(error.localizedDescription)")
                         completion(false)
                         return
                     }
                     
+                    print("Successfully saved driver comment")
                     completion(true)
                 }
             } else {
+                print("No driver comment to save")
                 completion(true)
+            }
+        }
+    }
+    
+    private func hasOrderBeenRated(completion: @escaping (Bool, Bool) -> Void) {
+        let customerRatingsRef = database.child("customers/\(order.userId)/ratingsAndComments")
+        
+        // Check if restaurant has been rated
+        customerRatingsRef.child("restaurant").child(order.restaurantId).observeSingleEvent(of: .value) { snapshot in
+            let restaurantRated = snapshot.exists() && snapshot.value != nil
+            
+            // Check if driver has been rated (if applicable)
+            if self.canRateDriver {
+                let driverId = self.order.driverId ?? "delivery_driver"
+                let actualDriverId = driverId.isEmpty && self.isDeliveryOrder ? "delivery_driver" : driverId
+                
+                if actualDriverId.isEmpty {
+                    // No driver to rate
+                    completion(restaurantRated, false)
+                    return
+                }
+                
+                customerRatingsRef.child("driver").child(actualDriverId).observeSingleEvent(of: .value) { snapshot in
+                    let driverRated = snapshot.exists() && snapshot.value != nil
+                    completion(restaurantRated, driverRated)
+                }
+            } else {
+                // No driver to rate
+                completion(restaurantRated, false)
             }
         }
     }
