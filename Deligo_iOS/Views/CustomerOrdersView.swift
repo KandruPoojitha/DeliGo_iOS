@@ -134,6 +134,7 @@ struct CustomerOrderCard: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
     @State private var showingCart = false
+    @State private var selectedTab = 0 // 0 for restaurant, 1 for driver
     
     private let database = Database.database().reference()
     
@@ -255,30 +256,23 @@ struct CustomerOrderCard: View {
                     Divider()
                     
                     HStack(spacing: 16) {
-                        // Rating button
-                        if let rating = order.rating {
-                            Button(action: { showingRatingSheet = true }) {
-                                HStack {
-                                    Image(systemName: "star.fill")
-                                        .foregroundColor(.yellow)
-                                    Text("View Rating (\(rating.rating))")
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
-                            }
-                        } else {
-                            Button(action: { showingRatingSheet = true }) {
-                                HStack {
-                                    Image(systemName: "star")
+                        // Single Rating button that covers both restaurant and driver
+                        Button(action: { 
+                            selectedTab = 0 // Default to restaurant tab
+                            showingRatingSheet = true 
+                        }) {
+                            HStack {
+                                Image(systemName: "star")
+                                if order.restaurantRating != nil || order.driverRating != nil {
+                                    Text("View Ratings")
+                                } else {
                                     Text("Rate Order")
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
                         }
                         
                         // Reorder button
@@ -317,7 +311,7 @@ struct CustomerOrderCard: View {
         .cornerRadius(12)
         .shadow(radius: 2)
         .sheet(isPresented: $showingRatingSheet) {
-            RateOrderView(order: order, authViewModel: authViewModel)
+            RateOrderView(order: order, authViewModel: authViewModel, initialTab: selectedTab)
         }
         .alert("Reorder Confirmation", isPresented: $showingReorderConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -343,7 +337,7 @@ struct CustomerOrderCard: View {
         case "assigned_driver":
             return .purple
         case "picked_up", "delivering":
-            return Color(hex: "4CAF50") // Green
+            return Color(hex: "4CAF50") 
         case "delivered":
             return .green
         case "cancelled", "rejected":
@@ -364,7 +358,6 @@ struct CustomerOrderCard: View {
     private func reorderItems() {
         isReordering = true
         
-        // Get reference to the user's cart in Firebase
         let userId = order.userId
         if userId.isEmpty {
             alertMessage = "Cannot reorder: User ID is missing"
@@ -465,7 +458,8 @@ struct CustomerOrder: Identifiable {
     let updatedAt: TimeInterval
     let driverId: String?
     let driverName: String?
-    let rating: Rating?
+    let restaurantRating: Rating?
+    let driverRating: Rating?
     
     var orderStatusDisplay: String {
         switch (status.lowercased(), orderStatus.lowercased()) {
@@ -540,11 +534,17 @@ struct CustomerOrder: Identifiable {
             self.items = []
         }
         
-        // Parse rating if exists
-        if let ratingData = data["rating"] as? [String: Any] {
-            self.rating = Rating(id: id, data: ratingData)
+        // Parse ratings if they exist
+        if let ratingData = data["restaurantRating"] as? [String: Any] {
+            self.restaurantRating = Rating(id: id, data: ratingData)
         } else {
-            self.rating = nil
+            self.restaurantRating = nil
+        }
+        
+        if let driverRatingData = data["driverRating"] as? [String: Any] {
+            self.driverRating = Rating(id: id, data: driverRatingData)
+        } else {
+            self.driverRating = nil
         }
     }
 }
