@@ -117,8 +117,6 @@ struct CartItemRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 if let imageURL = item.imageURL, !imageURL.isEmpty {
-                    let _ = print("Loading image from URL: \(imageURL)")
-                    
                     AsyncImage(url: URL(string: imageURL)) { phase in
                         switch phase {
                         case .empty:
@@ -143,8 +141,6 @@ struct CartItemRow: View {
                         }
                     }
                 } else {
-                    let _ = print("No image URL for item: \(item.name)")
-                    
                     Image(systemName: "photo")
                         .font(.system(size: 30))
                         .foregroundColor(.gray)
