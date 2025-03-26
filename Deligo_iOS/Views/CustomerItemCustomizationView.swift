@@ -248,6 +248,7 @@ struct CustomerItemCustomizationView: View {
         let cartItem = CartItem(
             id: UUID().uuidString,
             menuItemId: item.id,
+            restaurantId: item.restaurantId,
             name: item.name,
             description: item.description,
             price: item.price,

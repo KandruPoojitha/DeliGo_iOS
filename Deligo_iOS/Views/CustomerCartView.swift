@@ -265,6 +265,8 @@ struct CartTotalView: View {
     let totalPrice: Double
     @ObservedObject var cartManager: CartManager
     @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var showingRestaurantAlert = false
+    @State private var showingCheckout = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -281,7 +283,13 @@ struct CartTotalView: View {
                         .foregroundColor(Color(hex: "F4A261"))
                 }
                 
-                NavigationLink(destination: CheckoutView(cartManager: cartManager, authViewModel: authViewModel)) {
+                Button(action: {
+                    if cartManager.validateRestaurants() {
+                        showingCheckout = true
+                    } else {
+                        showingRestaurantAlert = true
+                    }
+                }) {
                     Text("Proceed to Checkout")
                         .font(.headline)
                         .foregroundColor(.white)
@@ -289,6 +297,14 @@ struct CartTotalView: View {
                         .padding()
                         .background(Color(hex: "F4A261"))
                         .cornerRadius(12)
+                }
+                .alert("Invalid Cart", isPresented: $showingRestaurantAlert) {
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text("Please select items from the same restaurant")
+                }
+                .navigationDestination(isPresented: $showingCheckout) {
+                    CheckoutView(cartManager: cartManager, authViewModel: authViewModel)
                 }
             }
             .padding()

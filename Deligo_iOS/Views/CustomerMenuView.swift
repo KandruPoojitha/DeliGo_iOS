@@ -201,7 +201,7 @@ struct CustomerMenuView: View {
                 
                 if !isAvailable { continue } // Skip unavailable items for customers
                 
-                let options: [CustomizationOption] = customizationOptions.map { optionDict in
+                let options = customizationOptions.map { optionDict in
                     CustomizationOption(
                         id: optionDict["id"] as? String ?? "",
                         name: optionDict["name"] as? String ?? "",
@@ -220,6 +220,7 @@ struct CustomerMenuView: View {
                 
                 let item = MenuItem(
                     id: id,
+                    restaurantId: restaurant.id,
                     name: name,
                     description: description,
                     price: price,
@@ -466,6 +467,7 @@ struct ItemDetailView: View {
         let cartItem = CartItem(
             id: UUID().uuidString,
             menuItemId: item.id,
+            restaurantId: item.restaurantId,
             name: item.name,
             description: item.description,
             price: item.price,

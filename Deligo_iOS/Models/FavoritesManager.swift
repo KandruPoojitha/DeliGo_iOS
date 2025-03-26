@@ -48,6 +48,7 @@ class FavoritesManager: ObservableObject {
                 
                 let item = MenuItem(
                     id: id,
+                    restaurantId: dict["restaurantId"] as? String ?? "",
                     name: name,
                     description: description,
                     price: price,

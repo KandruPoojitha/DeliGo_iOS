@@ -3,6 +3,7 @@ import Foundation
 struct CartItem: Identifiable, Equatable, Codable {
     let id: String
     let menuItemId: String
+    let restaurantId: String
     let name: String
     let description: String
     let price: Double
@@ -15,6 +16,7 @@ struct CartItem: Identifiable, Equatable, Codable {
     private enum CodingKeys: String, CodingKey {
         case id
         case menuItemId
+        case restaurantId
         case name
         case description
         case price
@@ -28,6 +30,7 @@ struct CartItem: Identifiable, Equatable, Codable {
     static func == (lhs: CartItem, rhs: CartItem) -> Bool {
         lhs.id == rhs.id &&
         lhs.menuItemId == rhs.menuItemId &&
+        lhs.restaurantId == rhs.restaurantId &&
         lhs.name == rhs.name &&
         lhs.description == rhs.description &&
         lhs.price == rhs.price &&
