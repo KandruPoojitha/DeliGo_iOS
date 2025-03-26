@@ -2,7 +2,6 @@ import SwiftUI
 import FirebaseDatabase
 import StripePaymentSheet
 import GooglePlaces
-import Foundation
 
 struct CheckoutView: View {
     @ObservedObject var cartManager: CartManager
@@ -13,14 +12,14 @@ struct CheckoutView: View {
     @State private var paymentMethod: PaymentMethod = PaymentMethod.card
     @State private var tipPercentage: Double = 15.0
     @State private var deliveryAddress = DeliveryAddress(
-        streetAddress: "", 
-        city: "", 
-        state: "", 
+        streetAddress: "",
+        city: "",
+        state: "",
         zipCode: "",
-        unit: nil, 
-        instructions: nil, 
-        latitude: 0.0, 
-        longitude: 0.0, 
+        unit: nil,
+        instructions: nil,
+        latitude: 0.0,
+        longitude: 0.0,
         placeID: ""
     )
     @State private var unitText: String = ""
@@ -190,7 +189,7 @@ struct CheckoutView: View {
                 
                 TextField("Enter unit or apartment number", text: $unitText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onChange(of: unitText) { _, newValue in 
+                    .onChange(of: unitText) { _, newValue in
                         deliveryAddress.unit = newValue.isEmpty ? nil : newValue
                     }
             }
@@ -387,8 +386,7 @@ struct CheckoutView: View {
     private func createOrder(userId: String, status: String, paymentIntentId: String?) {
         let orderId = UUID().uuidString
         
-        // First, determine the correct restaurant ID
-        // We need to get the restaurant ID from our cartManager
+        // Get the restaurant ID from the first cart item since we've validated all items are from the same restaurant
         guard let firstItem = cartManager.cartItems.first else {
             alertMessage = "No items in cart. Unable to create order."
             showingAlert = true
@@ -396,29 +394,12 @@ struct CheckoutView: View {
             return
         }
         
-        // Use Firebase to fetch the actual restaurant ID for this menu item
-        let db = Database.database().reference()
-        let menuItemRef = db.child("menu_items").child(firstItem.menuItemId)
+        // Use the restaurantId from the cart item
+        let restaurantId = firstItem.restaurantId
+        print("DEBUG: Using restaurant ID from cart item: \(restaurantId)")
         
-        // First try to get the restaurant ID directly
-        menuItemRef.child("restaurantId").observeSingleEvent(of: .value) { snapshot in
-            var restaurantId = ""
-            
-            if let value = snapshot.value as? String, !value.isEmpty {
-                // We found the restaurant ID directly
-                restaurantId = value
-                print("DEBUG: Found restaurant ID directly: \(restaurantId)")
-                self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
-            } else {
-                // We need to query restaurants to find which one has this menu item
-                print("DEBUG: Restaurant ID not found directly, searching through restaurants")
-                
-                // For now, as a fallback, use a hardcoded restaurant ID that we saw in the logs
-                let knownRestaurantId = "NOiohEt8FzT5smQGnrHl5Tq4e9R2"
-                print("DEBUG: Using fallback restaurant ID: \(knownRestaurantId)")
-                self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: knownRestaurantId, status: status, paymentIntentId: paymentIntentId)
-            }
-        }
+        // Proceed with order creation
+        self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
     }
     
     private func completeOrderCreation(orderId: String, userId: String, restaurantId: String, status: String, paymentIntentId: String?) {

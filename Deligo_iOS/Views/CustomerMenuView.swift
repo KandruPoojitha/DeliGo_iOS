@@ -201,24 +201,7 @@ struct CustomerMenuView: View {
                 
                 if !isAvailable { continue } // Skip unavailable items for customers
                 
-                let options = customizationOptions.map { optionDict in
-                    CustomizationOption(
-                        id: optionDict["id"] as? String ?? "",
-                        name: optionDict["name"] as? String ?? "",
-                        type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
-                        required: optionDict["required"] as? Bool ?? false,
-                        options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
-                            CustomizationItem(
-                                id: itemDict["id"] as? String ?? "",
-                                name: itemDict["name"] as? String ?? "",
-                                price: itemDict["price"] as? Double ?? 0.0
-                            )
-                        },
-                        maxSelections: optionDict["maxSelections"] as? Int ?? 1
-                    )
-                }
-                
-                let item = MenuItem(
+                let menuItem = MenuItem(
                     id: id,
                     restaurantId: restaurant.id,
                     name: name,
@@ -227,9 +210,24 @@ struct CustomerMenuView: View {
                     imageURL: imageURL,
                     category: category,
                     isAvailable: isAvailable,
-                    customizationOptions: options
+                    customizationOptions: customizationOptions.map { optionDict in
+                        CustomizationOption(
+                            id: optionDict["id"] as? String ?? UUID().uuidString,
+                            name: optionDict["name"] as? String ?? "",
+                            type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
+                            required: optionDict["required"] as? Bool ?? false,
+                            options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
+                                CustomizationItem(
+                                    id: itemDict["id"] as? String ?? UUID().uuidString,
+                                    name: itemDict["name"] as? String ?? "",
+                                    price: itemDict["price"] as? Double ?? 0.0
+                                )
+                            },
+                            maxSelections: optionDict["maxSelections"] as? Int ?? 1
+                        )
+                    }
                 )
-                items.append(item)
+                items.append(menuItem)
             }
             
             self.menuItems = items

@@ -1,6 +1,5 @@
 import SwiftUI
 import FirebaseDatabase
-import Foundation
 
 struct CustomerCartView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -117,6 +116,8 @@ struct CartItemRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 if let imageURL = item.imageURL, !imageURL.isEmpty {
+                    let _ = print("Loading image from URL: \(imageURL)")
+                    
                     AsyncImage(url: URL(string: imageURL)) { phase in
                         switch phase {
                         case .empty:
@@ -141,6 +142,8 @@ struct CartItemRow: View {
                         }
                     }
                 } else {
+                    let _ = print("No image URL for item: \(item.name)")
+                    
                     Image(systemName: "photo")
                         .font(.system(size: 30))
                         .foregroundColor(.gray)
@@ -261,8 +264,6 @@ struct CartTotalView: View {
     let totalPrice: Double
     @ObservedObject var cartManager: CartManager
     @EnvironmentObject var authViewModel: AuthViewModel
-    @State private var showingRestaurantAlert = false
-    @State private var showingCheckout = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -279,13 +280,7 @@ struct CartTotalView: View {
                         .foregroundColor(Color(hex: "F4A261"))
                 }
                 
-                Button(action: {
-                    if cartManager.validateRestaurants() {
-                        showingCheckout = true
-                    } else {
-                        showingRestaurantAlert = true
-                    }
-                }) {
+                NavigationLink(destination: CheckoutView(cartManager: cartManager, authViewModel: authViewModel)) {
                     Text("Proceed to Checkout")
                         .font(.headline)
                         .foregroundColor(.white)
@@ -293,14 +288,6 @@ struct CartTotalView: View {
                         .padding()
                         .background(Color(hex: "F4A261"))
                         .cornerRadius(12)
-                }
-                .alert("Invalid Cart", isPresented: $showingRestaurantAlert) {
-                    Button("OK", role: .cancel) { }
-                } message: {
-                    Text("Please select items from the same restaurant")
-                }
-                .navigationDestination(isPresented: $showingCheckout) {
-                    CheckoutView(cartManager: cartManager, authViewModel: authViewModel)
                 }
             }
             .padding()

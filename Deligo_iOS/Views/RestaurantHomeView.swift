@@ -1629,8 +1629,8 @@ struct DriverSelectionView: View {
         // Driver exists and is available, proceed with assignment
         let orderUpdates: [String: Any] = [
             "driverId": driverId,
-            "status": "assigned_driver",
-            "order_status": "preparing",
+            "status": "in_progress",
+            "order_status": "assigned_driver",
             "driverName": finalDriverName,
             "updatedAt": ServerValue.timestamp()
         ]
@@ -2321,12 +2321,12 @@ struct InProgressOrdersView: View {
                 // Only process orders for this restaurant
                 if orderRestaurantId == restaurantId {
                     // Check various status combinations that should appear in In Progress tab
+                    // IMPORTANT: Any order with status "in_progress" should appear here regardless of order_status
                     let shouldShow = (
-                        (status == "in_progress" && orderStatus == "accepted") ||  // Accepted orders
-                        status == "preparing" ||                                   // Preparing orders
-                        status == "assigned_driver" ||                            // Orders assigned to drivers
-                        status == "picked_up" ||                                  // Orders picked up by drivers
-                        (status == "in_progress" && orderStatus == "ready_for_pickup") // Ready for pickup
+                        status == "in_progress" ||                            // Any in_progress order regardless of order_status
+                        status == "preparing" ||                              // Preparing orders
+                        status == "assigned_driver" ||                        // Orders assigned to drivers
+                        status == "picked_up"                                 // Orders picked up by drivers
                     )
                     
                     if shouldShow {
@@ -2334,9 +2334,9 @@ struct InProgressOrdersView: View {
                         print("DEBUG: 📊 Order status=\(status), orderStatus=\(orderStatus)")
                         
                         if let order = Order(id: snapshot.key, data: dict) {
-                        inProgressOrders.append(order)
+                            inProgressOrders.append(order)
                             print("DEBUG: ✅ Successfully added order to in-progress list")
-                    }
+                        }
                     } else {
                         print("DEBUG: ❌ Order \(snapshot.key) does not meet in-progress criteria")
                     }
