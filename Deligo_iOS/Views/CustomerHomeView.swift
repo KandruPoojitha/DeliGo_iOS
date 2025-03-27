@@ -10,6 +10,8 @@ struct Restaurant: Identifiable {
     let phone: String
     let cuisine: String
     let priceRange: String
+    let minPrice: Int
+    let maxPrice: Int
     let rating: Double
     let numberOfRatings: Int
     let address: String
@@ -68,10 +70,19 @@ struct RestaurantRow: View {
                     Text("•")
                         .foregroundColor(.gray)
                     
-                    Text(restaurant.priceRange)
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: "F4A261"))
-                        .fontWeight(.medium)
+                    // Price range with actual prices
+                    HStack(spacing: 4) {
+                        Text(restaurant.priceRange)
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "F4A261"))
+                            .fontWeight(.medium)
+                        
+                        if restaurant.minPrice > 0 || restaurant.maxPrice > 0 {
+                            Text("$\(restaurant.minPrice)-\(restaurant.maxPrice)")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
                 
                 HStack {
@@ -260,12 +271,14 @@ struct MainCustomerView: View {
                 .tag(1)
             
             // Cart Tab
-            CustomerCartView(authViewModel: authViewModel)
-                .tabItem {
-                    Image(systemName: "cart.fill")
-                    Text("Cart")
-                }
-                .tag(2)
+            NavigationView {
+                CustomerCartView(authViewModel: authViewModel)
+            }
+            .tabItem {
+                Image(systemName: "cart.fill")
+                Text("Cart")
+            }
+            .tag(2)
             
             // Orders Tab
             CustomerOrdersView(authViewModel: authViewModel)
@@ -361,6 +374,31 @@ struct MainCustomerView: View {
                 } else {
                     print("DEBUG: No location data found for restaurant: \(storeInfo["name"] ?? "")")
                 }
+                
+                // Get price range from store_info > price_range
+                var minPrice: Int = 0
+                var maxPrice: Int = 0
+                var priceRangeString = "$"
+                
+                if let priceRange = storeInfo["price_range"] as? [String: Any] {
+                    minPrice = priceRange["min"] as? Int ?? 0
+                    maxPrice = priceRange["max"] as? Int ?? 0
+                    
+                    // Generate price range string based on max price
+                    if maxPrice > 0 {
+                        if maxPrice <= 15 {
+                            priceRangeString = "$"
+                        } else if maxPrice <= 30 {
+                            priceRangeString = "$$"
+                        } else if maxPrice <= 50 {
+                            priceRangeString = "$$$"
+                        } else {
+                            priceRangeString = "$$$$"
+                        }
+                    }
+                    
+                    print("DEBUG: Price range for \(storeInfo["name"] ?? ""): $\(minPrice)-$\(maxPrice) (\(priceRangeString))")
+                }
 
                 let restaurant = Restaurant(
                     id: childSnapshot.key,
@@ -369,7 +407,9 @@ struct MainCustomerView: View {
                     email: storeInfo["email"] as? String ?? "",
                     phone: storeInfo["phone"] as? String ?? "",
                     cuisine: storeInfo["cuisine"] as? String ?? "Various",
-                    priceRange: storeInfo["priceRange"] as? String ?? "$",
+                    priceRange: priceRangeString,
+                    minPrice: minPrice,
+                    maxPrice: maxPrice,
                     rating: dict["rating"] as? Double ?? 0.0,
                     numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
                     address: storeInfo["address"] as? String ?? "",
@@ -453,29 +493,18 @@ struct MainCustomerView: View {
             
         case .priceLowToHigh:
             sortedRestaurants.sort {
-                let price1 = getPriceValue(from: $0.priceRange)
-                let price2 = getPriceValue(from: $1.priceRange)
-                
-                if price1 == price2 {
-                    // If prices are equal, sort by name
+                if $0.maxPrice == $1.maxPrice {
                     return $0.name < $1.name
                 }
-                
-                return price1 < price2
+                return $0.maxPrice < $1.maxPrice
             }
             
         case .priceHighToLow:
-            // Sort by price range (high to low)
             sortedRestaurants.sort {
-                let price1 = getPriceValue(from: $0.priceRange)
-                let price2 = getPriceValue(from: $1.priceRange)
-                
-                if price1 == price2 {
-                    // If prices are equal, sort by name
+                if $0.maxPrice == $1.maxPrice {
                     return $0.name < $1.name
                 }
-                
-                return price1 > price2
+                return $0.maxPrice > $1.maxPrice
             }
         }
         

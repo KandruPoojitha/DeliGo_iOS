@@ -86,10 +86,18 @@ struct CustomerMenuView: View {
                         Text("•")
                             .foregroundColor(.gray)
                             
-                        Text(restaurant.priceRange)
-                            .font(.subheadline)
-                            .foregroundColor(Color(hex: "F4A261"))
-                            .fontWeight(.medium)
+                        HStack(spacing: 4) {
+                            Text(restaurant.priceRange)
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: "F4A261"))
+                                .fontWeight(.medium)
+                            
+                            if restaurant.minPrice > 0 || restaurant.maxPrice > 0 {
+                                Text("$\(restaurant.minPrice)-\(restaurant.maxPrice)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
                     
                     HStack {
@@ -592,6 +600,8 @@ struct CategoryHeader: View {
             phone: "123-456-7890",
             cuisine: "Various",
             priceRange: "$$",
+            minPrice: 10,
+            maxPrice: 30,
             rating: 4.5,
             numberOfRatings: 100,
             address: "123 Test Street",

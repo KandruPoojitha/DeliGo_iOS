@@ -938,6 +938,8 @@ struct AddOptionView: View {
             phone: "123-456-7890",
             cuisine: "Various",
             priceRange: "$$",
+            minPrice: 10,
+            maxPrice: 30,
             rating: 4.5,
             numberOfRatings: 100,
             address: "123 Test Street",

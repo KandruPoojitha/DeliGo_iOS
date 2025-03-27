@@ -104,7 +104,7 @@ struct RestaurantHomeView: View {
         .onAppear {
             // Set up real-time listener for isOpen status
             if let userId = authViewModel.currentUserId {
-                database.child("restaurants").child(userId).child("isOpen").observe(.value) { snapshot in
+                database.child("restaurants").child(userId).child("isOpen").observe(.value) { snapshot, _ in
                     if let isOpen = snapshot.value as? Bool {
                         DispatchQueue.main.async {
                             self.isRestaurantOpen = isOpen
@@ -122,7 +122,7 @@ struct RestaurantHomeView: View {
         guard let userId = authViewModel.currentUserId else { return }
         let db = Database.database().reference()
         
-        db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot in
+        db.child("restaurants").child(userId).observeSingleEvent(of: .value) { snapshot, _ in
             guard let dict = snapshot.value as? [String: Any],
                   let storeInfo = dict["store_info"] as? [String: Any] else {
                 print("DEBUG: Failed to load restaurant data")
@@ -144,6 +144,8 @@ struct RestaurantHomeView: View {
                 phone: storeInfo["phone"] as? String ?? "",
                 cuisine: storeInfo["cuisine"] as? String ?? "Various",
                 priceRange: storeInfo["priceRange"] as? String ?? "$",
+                minPrice: (storeInfo["price_range"] as? [String: Any])?["min"] as? Int ?? 0,
+                maxPrice: (storeInfo["price_range"] as? [String: Any])?["max"] as? Int ?? 0,
                 rating: dict["rating"] as? Double ?? 0.0,
                 numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
                 address: storeInfo["address"] as? String ?? "",
