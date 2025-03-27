@@ -135,6 +135,7 @@ struct CustomerOrderCard: View {
     @State private var showingAlert = false
     @State private var showingCart = false
     @State private var selectedTab = 0 // 0 for restaurant, 1 for driver
+    @State private var showReceiptView = false
     
     private let database = Database.database().reference()
     
@@ -256,7 +257,7 @@ struct CustomerOrderCard: View {
                     Divider()
                     
                     VStack(spacing: 12) {
-                        // Rating and reorder buttons/information
+                        // First row: Rating and reorder buttons
                         HStack(spacing: 16) {
                             // Show either rate button or rating information
                             if order.restaurantRating == nil && order.driverRating == nil {
@@ -320,22 +321,40 @@ struct CustomerOrderCard: View {
                             .disabled(isReordering)
                         }
                         
-                        // Chat with restaurant button
-                        NavigationLink(destination: OrderChatView(
-                            orderId: order.id,
-                            restaurantId: order.restaurantId,
-                            restaurantName: order.restaurantName,
-                            authViewModel: authViewModel
-                        )) {
-                            HStack {
-                                Image(systemName: "bubble.left.and.bubble.right.fill")
-                                Text("Chat with Restaurant")
+                        // Second row: Receipt and Chat buttons
+                        HStack(spacing: 16) {
+                            // Download Receipt button
+                            Button(action: { 
+                                showReceiptView = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.down.doc")
+                                    Text("Download Receipt")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color(hex: "F4A261"))
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
-                            .cornerRadius(8)
+                            
+                            // Chat with restaurant button
+                            NavigationLink(destination: OrderChatView(
+                                orderId: order.id,
+                                restaurantId: order.restaurantId,
+                                restaurantName: order.restaurantName,
+                                authViewModel: authViewModel
+                            )) {
+                                HStack {
+                                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                                    Text("Chat")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
+                                .cornerRadius(8)
+                            }
                         }
                         
                         // Display restaurant rating if exists
@@ -416,6 +435,9 @@ struct CustomerOrderCard: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
+        }
+        .sheet(isPresented: $showReceiptView) {
+            OrderReceiptView(order: order)
         }
     }
     
