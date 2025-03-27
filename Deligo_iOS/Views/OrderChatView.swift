@@ -1,16 +1,14 @@
 import SwiftUI
 import FirebaseDatabase
 
-struct RestaurantChatView: View {
+struct OrderChatView: View {
     let orderId: String
-    let customerId: String
-    let customerName: String
+    let restaurantId: String
+    let restaurantName: String
     @ObservedObject var authViewModel: AuthViewModel
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = []
     @State private var isLoading = true
-    @State private var showAlert = false
-    @State private var alertMessage = ""
     @Environment(\.presentationMode) var presentationMode
     
     private let database = Database.database().reference()
@@ -27,7 +25,7 @@ struct RestaurantChatView: View {
                         .foregroundColor(.primary)
                 }
                 
-                Text(customerName)
+                Text(restaurantName)
                     .font(.headline)
                     .padding(.leading, 8)
                 
@@ -51,7 +49,7 @@ struct RestaurantChatView: View {
                         .foregroundColor(.gray)
                     Text("No messages yet")
                         .font(.headline)
-                    Text("Start a conversation with the customer")
+                    Text("Start a conversation with the restaurant")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -59,29 +57,14 @@ struct RestaurantChatView: View {
                 Spacer()
             } else {
                 // Messages list
-                ScrollViewReader { scrollView in
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(messages) { message in
-                                MessageBubble(message: message, isFromCurrentUser: message.senderType == "restaurant")
-                                    .id(message.id)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top)
-                    }
-                    .onChange(of: messages) { _, newMessages in
-                        if let lastMessage = newMessages.last {
-                            withAnimation {
-                                scrollView.scrollTo(lastMessage.id, anchor: .bottom)
-                            }
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(messages) { message in
+                            MessageBubble(message: message, isFromCurrentUser: message.senderType == "customer")
                         }
                     }
-                    .onAppear {
-                        if let lastMessage = messages.last {
-                            scrollView.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
-                    }
+                    .padding(.horizontal)
+                    .padding(.top)
                 }
             }
             
@@ -95,7 +78,7 @@ struct RestaurantChatView: View {
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : Color(hex: "F4A261"))
+                        .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : Color(hexString: "F4A261"))
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .padding(.leading, 8)
@@ -104,20 +87,8 @@ struct RestaurantChatView: View {
         }
         .onAppear {
             loadMessages()
-            // Ensure user data is loaded
-            authViewModel.loadUserProfile()
-            
-            // Print debug info
-            print("AUTH INFO - UID: \(authViewModel.currentUserId ?? "nil"), Name: \(authViewModel.fullName ?? "nil")")
         }
         .navigationBarHidden(true)
-        .alert(isPresented: $showAlert) {
-            Alert(
-                title: Text("Message Status"),
-                message: Text(alertMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
     }
     
     private func loadMessages() {
@@ -149,42 +120,27 @@ struct RestaurantChatView: View {
     }
     
     private func sendMessage() {
-        let restaurantId = authViewModel.currentUserId ?? "restaurant_unknown"
-        let restaurantName = authViewModel.fullName ?? "Restaurant"
-        let messageContent = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !messageContent.isEmpty else {
-            print("Failed to send message: empty message")
+        guard let userId = authViewModel.currentUserId,
+              let userName = authViewModel.fullName,
+              !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
-        
-        print("Sending message from restaurant \(restaurantName) to order \(orderId)")
-        print("RestaurantId: \(restaurantId)")
-        print("MessageText: \(messageContent)")
         
         let messagesRef = database.child("orders").child(orderId).child("messages")
         let newMessageRef = messagesRef.childByAutoId()
         
         let message = [
-            "senderId": restaurantId,
-            "senderName": restaurantName,
-            "senderType": "restaurant",
-            "message": messageContent,
-            "timestamp": ServerValue.timestamp(),
-            "isRead": false
+            "senderId": userId,
+            "senderName": userName,
+            "senderType": "customer",
+            "message": messageText.trimmingCharacters(in: .whitespacesAndNewlines),
+            "timestamp": ServerValue.timestamp()
         ] as [String: Any]
-        
-        print("Message data: \(message)")
         
         newMessageRef.setValue(message) { error, _ in
             if let error = error {
                 print("Error sending message: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.alertMessage = "Failed to send message: \(error.localizedDescription)"
-                    self.showAlert = true
-                }
             } else {
-                print("Message sent successfully!")
                 // Clear the input field
                 DispatchQueue.main.async {
                     self.messageText = ""
@@ -195,10 +151,10 @@ struct RestaurantChatView: View {
 }
 
 #Preview {
-    RestaurantChatView(
+    OrderChatView(
         orderId: "order123", 
-        customerId: "customer123",
-        customerName: "Sample Customer",
+        restaurantId: "restaurant123",
+        restaurantName: "Sample Restaurant",
         authViewModel: AuthViewModel()
     )
 } 

@@ -1,62 +1,81 @@
 import Foundation
 import FirebaseDatabase
 
-struct ChatMessage: Identifiable, Codable, Equatable {
-    var id: String
-    var senderId: String
-    var senderName: String
-    var senderType: SenderType
-    var message: String
-    var timestamp: Double
-    var isRead: Bool
+struct ChatMessage: Identifiable, Equatable {
+    let id: String
+    let senderId: String
+    let senderName: String
+    let senderType: String // "customer" or "restaurant"
+    let message: String
+    let timestamp: TimeInterval
+    let isRead: Bool
     
-    enum SenderType: String, Codable {
+    enum SenderType: String {
         case customer
         case restaurant
         case driver
         case admin
     }
     
-    var formattedDate: String {
-        let date = Date(timeIntervalSince1970: timestamp / 1000)
+    var formattedTime: String {
+        let date = Date(timeIntervalSince1970: timestamp)
         let formatter = DateFormatter()
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
     
-    static func fromDict(_ dict: [String: Any], id: String) -> ChatMessage? {
-        guard let senderId = dict["senderId"] as? String,
-              let senderName = dict["senderName"] as? String,
-              let senderTypeRaw = dict["senderType"] as? String,
-              let message = dict["message"] as? String,
-              let timestamp = dict["timestamp"] as? Double,
-              let isRead = dict["isRead"] as? Bool else {
-            return nil
-        }
-        
-        let senderType = SenderType(rawValue: senderTypeRaw) ?? .customer
-        
-        return ChatMessage(
-            id: id,
-            senderId: senderId,
-            senderName: senderName,
-            senderType: senderType,
-            message: message,
-            timestamp: timestamp,
-            isRead: isRead
-        )
+    var formattedDate: String {
+        let date = Date(timeIntervalSince1970: timestamp)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+    
+    init(id: String, data: [String: Any]) {
+        self.id = id
+        self.senderId = data["senderId"] as? String ?? ""
+        self.senderName = data["senderName"] as? String ?? "Unknown"
+        self.senderType = data["senderType"] as? String ?? "customer"
+        self.message = data["message"] as? String ?? ""
+        self.timestamp = data["timestamp"] as? TimeInterval ?? Date().timeIntervalSince1970
+        self.isRead = data["isRead"] as? Bool ?? false
     }
     
     func toDict() -> [String: Any] {
         return [
             "senderId": senderId,
             "senderName": senderName,
-            "senderType": senderType.rawValue,
+            "senderType": senderType,
             "message": message,
             "timestamp": timestamp,
             "isRead": isRead
         ]
+    }
+    
+    static func fromDict(_ dict: [String: Any], id: String) -> ChatMessage? {
+        guard let senderId = dict["senderId"] as? String,
+              let senderName = dict["senderName"] as? String,
+              let senderType = dict["senderType"] as? String,
+              let message = dict["message"] as? String,
+              let timestamp = dict["timestamp"] as? TimeInterval else {
+            return nil
+        }
+        
+        let isRead = dict["isRead"] as? Bool ?? false
+        
+        return ChatMessage(
+            id: id,
+            data: [
+                "senderId": senderId,
+                "senderName": senderName,
+                "senderType": senderType,
+                "message": message,
+                "timestamp": timestamp,
+                "isRead": isRead
+            ]
+        )
     }
     
     static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {

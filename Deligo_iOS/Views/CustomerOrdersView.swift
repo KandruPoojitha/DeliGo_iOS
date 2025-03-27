@@ -320,6 +320,24 @@ struct CustomerOrderCard: View {
                             .disabled(isReordering)
                         }
                         
+                        // Chat with restaurant button
+                        NavigationLink(destination: OrderChatView(
+                            orderId: order.id,
+                            restaurantId: order.restaurantId,
+                            restaurantName: order.restaurantName,
+                            authViewModel: authViewModel
+                        )) {
+                            HStack {
+                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                Text("Chat with Restaurant")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                        
                         // Display restaurant rating if exists
                         if let restaurantRating = order.restaurantRating {
                             VStack(alignment: .leading, spacing: 6) {
@@ -402,20 +420,23 @@ struct CustomerOrderCard: View {
     }
     
     private var statusColor: Color {
-        switch order.status.lowercased() {
-        case "pending":
+        let status = order.status.lowercased()
+        
+        if status == "pending" {
             return .orange
-        case "accepted", "in_progress", "preparing", "ready_for_pickup":
+        } else if ["accepted", "in_progress", "preparing", "ready_for_pickup"].contains(status) {
             return .blue
-        case "assigned_driver":
+        } else if status == "assigned_driver" {
             return .purple
-        case "picked_up", "delivering":
-            return Color(hex: "4CAF50") 
-        case "delivered":
+        } else if status == "picked_up" || order.orderStatus.lowercased() == "picked_up" {
+            return Color(hex: "4CAF50")
+        } else if status == "delivering" || order.orderStatus.lowercased() == "delivering" {
             return .green
-        case "cancelled", "rejected":
+        } else if status == "delivered" || order.orderStatus.lowercased() == "delivered" {
+            return .green
+        } else if ["cancelled", "rejected"].contains(status) || order.orderStatus.lowercased() == "cancelled" {
             return .red
-        default:
+        } else {
             return .gray
         }
     }

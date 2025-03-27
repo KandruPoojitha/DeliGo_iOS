@@ -28,7 +28,7 @@ struct RestaurantCommentsView: View {
                         loadComments()
                     }
                     .padding()
-                    .background(Color(hex: "F4A261"))
+                    .background(Color("F4A261"))
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }
@@ -179,8 +179,6 @@ struct CommentRow: View {
         .padding(.vertical, 8)
     }
 }
-
-
 
 #Preview {
     NavigationView {

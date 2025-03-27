@@ -172,12 +172,20 @@ struct RestaurantAccountView: View {
                 }
                 
                 Section(header: Text("Admin Support")) {
-                    NavigationLink(destination: RestaurantChatView(authViewModel: authViewModel)) {
+                    NavigationLink(destination: RestaurantChatView(
+                        orderId: "admin_support", 
+                        customerId: "admin",
+                        customerName: "Admin Support",
+                        authViewModel: authViewModel)) {
                         HStack {
                             Image(systemName: "message.fill")
                             Text("Support Messages")
                             Spacer()
                         }
+                    }
+                    .onAppear {
+                        // Make sure user data is loaded before navigating
+                        authViewModel.loadUserProfile()
                     }
                 }
                 

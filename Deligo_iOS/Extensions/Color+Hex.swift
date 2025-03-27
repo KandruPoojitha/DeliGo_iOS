@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+    init(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
@@ -24,4 +24,8 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
-} 
+    
+    init(hex: String) {
+        self.init(hexString: hex)
+    }
+}

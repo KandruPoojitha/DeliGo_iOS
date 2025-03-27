@@ -45,7 +45,8 @@ struct DriverChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatManager.messages) { message in
-                            DriverMessageBubble(message: message, isFromCurrentUser: message.senderType == .driver)
+                            DriverMessageBubble(message: message, isFromCurrentUser: message.senderType == "driver")
+                                .id(message.id)
                         }
                     }
                     .padding()

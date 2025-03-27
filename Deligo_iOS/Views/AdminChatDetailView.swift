@@ -48,14 +48,14 @@ struct AdminChatDetailView: View {
                 
                 Spacer()
             }
-            .background(Color(hex: "F4A261").opacity(0.2))
+            .background(Color(hexString: "F4A261").opacity(0.2))
             
             // Messages list
             ScrollViewReader { scrollView in
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatManager.messages) { message in
-                            MessageBubble(message: message, isFromCurrentUser: message.senderType == .admin)
+                            MessageBubble(message: message, isFromCurrentUser: message.senderType == "admin")
                                 .id(message.id)
                         }
                     }
@@ -80,7 +80,7 @@ struct AdminChatDetailView: View {
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
-                        .foregroundColor(Color(hex: "F4A261"))
+                        .foregroundColor(Color(hexString: "F4A261"))
                         .padding(10)
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
