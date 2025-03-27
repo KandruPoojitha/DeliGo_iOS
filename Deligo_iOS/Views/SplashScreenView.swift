@@ -2,18 +2,20 @@ import SwiftUI
 import FirebaseAuth
 
 struct SplashScreenView: View {
-    @StateObject private var authViewModel = AuthViewModel()
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var isActive = false
     @State private var forceLogout = false
     
     var body: some View {
         if forceLogout {
             LoginView()
+                .environmentObject(authViewModel)
         } else if isActive {
             if authViewModel.isAuthenticated {
                 HomeView(authViewModel: authViewModel)
             } else {
                 LoginView()
+                    .environmentObject(authViewModel)
             }
         } else {
             VStack {
@@ -45,4 +47,5 @@ struct SplashScreenView: View {
 
 #Preview {
     SplashScreenView()
+        .environmentObject(AuthViewModel())
 } 

@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseDatabase
 import Foundation
+import UserNotifications
 
 // Import models
 
@@ -68,6 +69,7 @@ struct CustomerOrdersView: View {
             .navigationTitle("My Orders")
             .onAppear {
                 loadOrders()
+                setupNotifications()
             }
         }
     }
@@ -86,6 +88,108 @@ struct CustomerOrdersView: View {
                 return status == "delivered" || status == "cancelled" 
             }
         }
+    }
+    
+    private func setupNotifications() {
+        // Listen for order status changes
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("OrderStatusChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let userInfo = notification.userInfo,
+               let orderId = userInfo["orderId"] as? String {
+                // Refresh orders when status changes
+                loadOrders()
+                
+                // Show local notification for accepted orders
+                if let newStatus = userInfo["newStatus"] as? String,
+                   newStatus == "in_progress",
+                   let order = orders.first(where: { $0.id == orderId }) {
+                    showAcceptedOrderNotification(order: order)
+                }
+            }
+        }
+        
+        // Check for already accepted orders when view appears
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            checkForAcceptedOrders()
+        }
+    }
+    
+    private func checkForAcceptedOrders() {
+        print("DEBUG: 🔍 Checking for already accepted orders...")
+        guard let userId = authViewModel.currentUserId else { return }
+        
+        let database = Database.database().reference()
+        database.child("orders")
+            .queryOrdered(byChild: "userId")
+            .queryEqual(toValue: userId)
+            .observeSingleEvent(of: .value) { snapshot, _ in
+                print("DEBUG: 📦 Found \(snapshot.childrenCount) total orders to check")
+                
+                for child in snapshot.children {
+                    guard let snapshot = child as? DataSnapshot,
+                          let data = snapshot.value as? [String: Any] else { continue }
+                    
+                    let orderId = snapshot.key
+                    let status = (data["status"] as? String ?? "").lowercased()
+                    let orderStatus = (data["order_status"] as? String ?? "").lowercased()
+                    let isNew = (data["notificationSent"] as? Bool) != true
+                    
+                    print("DEBUG: 🔍 Checking order \(orderId) with status: \(status), orderStatus: \(orderStatus)")
+                    
+                    // Check if the order is accepted but notification hasn't been sent
+                    if status == "in_progress" && orderStatus == "accepted" && isNew {
+                        print("DEBUG: ✅ Found newly accepted order: \(orderId)")
+                        
+                        // Mark notification as sent
+                        database.child("orders").child(orderId).updateChildValues([
+                            "notificationSent": true
+                        ])
+                        
+                        // Create order object and show notification
+                        if let order = CustomerOrder(id: orderId, data: data) {
+                            showAcceptedOrderNotification(order: order)
+                        }
+                    }
+                }
+            }
+    }
+    
+    private func showAcceptedOrderNotification(order: CustomerOrder) {
+        print("DEBUG: 📱 Showing notification for order: \(order.id)")
+        
+        // Create local notification
+        let content = UNMutableNotificationContent()
+        content.title = "Order Accepted!"
+        content.body = "Your order from \(order.restaurantName) has been accepted and is being prepared."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "order-\(order.id)-accepted",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("DEBUG: ❌ Error showing notification: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: ✅ Local notification scheduled successfully")
+            }
+        }
+        
+        // Also post to NotificationCenter for in-app updates
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OrderStatusUpdated"),
+            object: nil,
+            userInfo: [
+                "orderId": order.id,
+                "status": "in_progress",
+                "orderStatus": "accepted"
+            ]
+        )
     }
     
     private func loadOrders() {

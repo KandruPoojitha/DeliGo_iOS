@@ -286,7 +286,7 @@ struct OrdersTabView: View {
                         } else {
                             // No direct status info, query Firebase
                             let database = Database.database().reference()
-                            database.child("orders").child(orderId).observeSingleEvent(of: .value) { snapshot in
+                            database.child("orders").child(orderId).observeSingleEvent(of: .value) { snapshot, _ in
                                 if let dict = snapshot.value as? [String: Any],
                                    let status = dict["status"] as? String {
                                     
@@ -340,28 +340,28 @@ struct OrdersTabView: View {
         let database = Database.database().reference()
         
         // Check if we can access the database
-        database.child(".info/connected").observe(.value) { snapshot in
+        database.child(".info/connected").observe(.value) { snapshot, _ in
             if let connected = snapshot.value as? Bool, connected {
                 print("DEBUG: Connected to Firebase")
                 
                 // Check for number of orders in the database
-                database.child("orders").observeSingleEvent(of: .value) { ordersSnapshot in
-                    print("DEBUG: Total orders in database: \(ordersSnapshot.childrenCount)")
+                database.child("orders").observeSingleEvent(of: .value) { snapshot, _ in
+                    print("DEBUG: Total orders in database: \(snapshot.childrenCount)")
                     
                     // If we have the restaurant ID, check for its orders
                     if let restaurantId = authViewModel.currentUserId {
                         database.child("orders")
                             .queryOrdered(byChild: "restaurantId")
                             .queryEqual(toValue: restaurantId)
-                            .observeSingleEvent(of: .value) { restaurantOrdersSnapshot in
-                                print("DEBUG: Found \(restaurantOrdersSnapshot.childrenCount) orders for restaurant \(restaurantId)")
+                            .observeSingleEvent(of: .value) { snapshot, _ in
+                                print("DEBUG: Found \(snapshot.childrenCount) orders for restaurant \(restaurantId)")
                                 
                                 // Count orders by status
                                 var pendingCount = 0
                                 var preparingCount = 0
                                 var deliveredCount = 0
                                 
-                                for child in restaurantOrdersSnapshot.children {
+                                for child in snapshot.children {
                                     guard let snapshot = child as? DataSnapshot,
                                           let dict = snapshot.value as? [String: Any],
                                           let status = dict["status"] as? String else { continue }
@@ -388,7 +388,7 @@ struct OrdersTabView: View {
         let database = Database.database().reference()
         
         // Get all orders to inspect their structure
-        database.child("orders").observeSingleEvent(of: .value) { snapshot in
+        database.child("orders").observeSingleEvent(of: .value) { snapshot, _ in
             print("\n\n📋 DETAILED ORDER INSPECTION 📋")
             print("Found \(snapshot.childrenCount) total orders")
             
@@ -437,7 +437,7 @@ struct OrdersTabView: View {
         
         print("\n🔍 LOOKING UP CUSTOMER: \(customerId)")
         
-        database.child("customers").child(customerId).observeSingleEvent(of: .value) { snapshot in
+        database.child("customers").child(customerId).observeSingleEvent(of: .value) { snapshot, _ in
             if snapshot.exists() {
                 print("✅ Customer exists in database")
                 
@@ -460,7 +460,7 @@ struct OrdersTabView: View {
             }
             
             // Also check the specific fullName path
-            database.child("customers").child(customerId).child("fullName").observeSingleEvent(of: .value) { nameSnapshot in
+            database.child("customers").child(customerId).child("fullName").observeSingleEvent(of: .value) { nameSnapshot, _ in
                 if nameSnapshot.exists() {
                     print("📋 Direct fullName check: \(nameSnapshot.value ?? "nil")")
                 } else {
@@ -474,7 +474,7 @@ struct OrdersTabView: View {
     private func checkSpecificOrder(_ orderId: String) {
         let database = Database.database().reference()
         
-        database.child("orders").child(orderId).observeSingleEvent(of: .value) { snapshot in
+        database.child("orders").child(orderId).observeSingleEvent(of: .value) { snapshot, _ in
             print("\n🔍 CHECKING SPECIFIC ORDER: \(orderId)")
             
             guard let dict = snapshot.value as? [String: Any] else {
@@ -517,7 +517,7 @@ struct OrdersTabView: View {
         
         print("\n🔍 LOOKING UP USER BY ID: \(userId)")
         
-        database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot in
+        database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot, _ in
             if snapshot.exists() {
                 print("✅ User document exists at users/\(userId)")
                 
@@ -534,7 +534,7 @@ struct OrdersTabView: View {
         }
         
         // Also check in the customers node
-        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot in
+        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot, _ in
             if snapshot.exists() {
                 print("✅ User document exists at customers/\(userId)")
                 
@@ -681,7 +681,7 @@ struct NewOrdersView: View {
             // Try with customerId first
             if !order.customerId.isEmpty {
                 // Fetch both name and phone
-                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot in
+                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot, _ in
                     if let userData = snapshot.value as? [String: Any] {
                         // Handle name
                         if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
@@ -701,10 +701,10 @@ struct NewOrdersView: View {
             }
             
             // Also check users collection with userId if available
-            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot in
+            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot, _ in
                 if let userId = snapshot.value as? String, !userId.isEmpty {
                     // Try in users collection
-                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot in
+                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot, _ in
                         if let userData = userSnapshot.value as? [String: Any] {
                             if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                                 DispatchQueue.main.async {
@@ -721,7 +721,7 @@ struct NewOrdersView: View {
                     }
                     
                     // Also try in customers collection
-                    database.child("customers").child(userId).observeSingleEvent(of: .value) { customerSnapshot in
+                    database.child("customers").child(userId).observeSingleEvent(of: .value) { customerSnapshot, _ in
                         if let userData = customerSnapshot.value as? [String: Any] {
                             if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                                 DispatchQueue.main.async {
@@ -750,7 +750,7 @@ struct NewOrdersView: View {
         print("DEBUG: Loading new orders for restaurant: '\(restaurantId)'")
         
         // Use a direct query to get all orders
-        database.child("orders").observeSingleEvent(of: .value) { snapshot in
+        database.child("orders").observeSingleEvent(of: .value) { snapshot, _ in
             print("DEBUG: Found \(snapshot.childrenCount) total orders in database")
             
             var newOrders: [Order] = []
@@ -793,7 +793,7 @@ struct NewOrdersView: View {
     
     private func acceptOrder(_ order: Order) {
         guard let restaurantId = authViewModel.currentUserId else {
-            print("DEBUG: ❌ No restaurant ID available")
+            print("DEBUG: No restaurant ID available")
             return
         }
 
@@ -807,40 +807,56 @@ struct NewOrdersView: View {
         
         database.child("orders").child(order.id).updateChildValues(orderUpdates) { error, _ in
             if let error = error {
-                print("DEBUG: ❌ Error accepting order: \(error.localizedDescription)")
+                print("DEBUG: Error accepting order: \(error.localizedDescription)")
             } else {
-                print("DEBUG: ✅ Successfully accepted order \(order.id)")
-                print("DEBUG: 📊 Updated status to: in_progress, order_status to: accepted")
+                print("DEBUG: Successfully accepted order \(order.id)")
+                print("DEBUG: Updated status to: in_progress, order_status to: accepted")
                 
-                // Manually verify the updates took effect
-                self.database.child("orders").child(order.id).observeSingleEvent(of: .value) { snapshot in
-                    if let dict = snapshot.value as? [String: Any] {
-                        let status = dict["status"] as? String ?? ""
-                        let orderStatus = dict["order_status"] as? String ?? ""
-                        let updatedRestaurantId = dict["restaurantId"] as? String ?? ""
-                        print("DEBUG: 🔍 Verification - Order \(order.id):")
-                        print("DEBUG: 📊 status=\(status), order_status=\(orderStatus)")
-                        print("DEBUG: 📊 restaurantId=\(updatedRestaurantId)")
-                    }
-                    
-                // Notify that order status has changed
-                DispatchQueue.main.async {
-                        print("DEBUG: 📣 Posting OrderStatusChanged notification for order \(order.id)")
-                    NotificationCenter.default.post(
-                        name: Notification.Name("OrderStatusChanged"),
-                        object: nil,
-                            userInfo: [
-                                "orderId": order.id,
-                                "newStatus": "in_progress",
-                                "newOrderStatus": "accepted"
-                            ]
-                        )
-                    }
+                if let driverId = order.driverId {
+                    database.child("drivers").child(driverId).observeSingleEvent(of: .value, with: { snapshot in
+                        if let dict = snapshot.value as? [String: Any] {
+                            let status = dict["status"] as? String ?? ""
+                            let orderStatus = dict["order_status"] as? String ?? ""
+                            let updatedRestaurantId = dict["restaurantId"] as? String ?? ""
+                            print("DEBUG: 🔍 Verification - Order \(order.id):")
+                            print("DEBUG: 📊 status=\(status), order_status=\(orderStatus)")
+                            print("DEBUG: 📊 restaurantId=\(updatedRestaurantId)")
+                            
+                            // Send push notification to customer
+                            NotificationManager.shared.sendPushNotification(
+                                to: order.userId,
+                                title: "Order Accepted!",
+                                body: "Your order from has been accepted and is being prepared.",
+                                data: [
+                                    "orderId": order.id,
+                                    "status": "in_progress",
+                                    "orderStatus": "accepted",
+                                    "type": "order_accepted"
+                                ]
+                            )
+                        }
+                        
+                        // Post local notification
+                        DispatchQueue.main.async {
+                            print("DEBUG: 📣 Posting OrderStatusChanged notification for order \(order.id)")
+                            NotificationCenter.default.post(
+                                name: Notification.Name("OrderStatusChanged"),
+                                object: nil,
+                                userInfo: [
+                                    "orderId": order.id,
+                                    "newStatus": "in_progress",
+                                    "newOrderStatus": "accepted"
+                                ]
+                            )
+                        }
+                    })
+                } else {
+                    print("DEBUG: No driverId assigned yet — skipping driver check.")
                 }
             }
         }
     }
-    
+
     private func rejectOrder(_ order: Order) {
         updateOrderStatus(order.id, status: "rejected")
     }
@@ -1018,7 +1034,7 @@ struct OrderCard: View {
         print("DEBUG: Loading driver info for driverId: \(driverId)")
         let database = Database.database().reference()
         
-        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot in
+        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot, _ in
             if !snapshot.exists() {
                 print("DEBUG: No driver found with ID: \(driverId)")
                 DispatchQueue.main.async {
@@ -1205,7 +1221,7 @@ struct Order: Identifiable {
         let database = Database.database().reference()
         print("DEBUG: Fetching customer data for ID: \(customerId)")
         
-        database.child("customers").child(customerId).observeSingleEvent(of: .value) { snapshot in
+        database.child("customers").child(customerId).observeSingleEvent(of: .value) { snapshot, _ in
             if snapshot.exists() {
                 if let userData = snapshot.value as? [String: Any] {
                     // Try to get fullName directly
@@ -1236,8 +1252,8 @@ struct Order: Identifiable {
                     let nameRef = database.child("customers").child(customerId).child("fullName")
                     let phoneRef = database.child("customers").child(customerId).child("phone")
                     
-                    nameRef.observeSingleEvent(of: .value) { nameSnapshot in
-                        phoneRef.observeSingleEvent(of: .value) { phoneSnapshot in
+                    nameRef.observeSingleEvent(of: .value) { nameSnapshot, _ in
+                        phoneRef.observeSingleEvent(of: .value) { phoneSnapshot, _ in
                             let name = nameSnapshot.value as? String ?? ""
                             let phone = phoneSnapshot.value as? String ?? ""
                             
@@ -1260,7 +1276,7 @@ struct Order: Identifiable {
         print("DEBUG: Fetching user data for userId: \(userId)")
         
         // Check in users collection
-        database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot in
+        database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot, _ in
             if snapshot.exists() {
                 if let userData = snapshot.value as? [String: Any] {
                     print("DEBUG: Found user data in users collection")
@@ -1518,7 +1534,7 @@ struct InProgressOrdersView: View {
             // Try with customerId first
             if !order.customerId.isEmpty {
                 // Fetch both name and phone
-                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot in
+                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot, _ in
                     if let userData = snapshot.value as? [String: Any] {
                         // Handle name
                         if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
@@ -1538,10 +1554,10 @@ struct InProgressOrdersView: View {
             }
             
             // Also check users collection with userId if available
-            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot in
+            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot, _ in
                 if let userId = snapshot.value as? String, !userId.isEmpty {
                     // Try in users collection
-                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot in
+                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot, _ in
                         if let userData = userSnapshot.value as? [String: Any] {
                             if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                                 DispatchQueue.main.async {
@@ -1560,7 +1576,7 @@ struct InProgressOrdersView: View {
             }
             
             // Also try in customers collection
-            database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot in
+            database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot, _ in
                 if let userData = customerSnapshot.value as? [String: Any] {
                     if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                         DispatchQueue.main.async {
@@ -1587,7 +1603,7 @@ struct InProgressOrdersView: View {
         print("DEBUG: 🔍 Loading in-progress orders for restaurant: \(restaurantId)")
         
         // Use a single observation to prevent multiple listeners
-        database.child("orders").observeSingleEvent(of: .value) { snapshot in
+        database.child("orders").observeSingleEvent(of: .value) { snapshot, _ in
             print("DEBUG: 🔍 Found \(snapshot.childrenCount) total orders in database")
             
             var inProgressOrders: [Order] = []
@@ -1667,7 +1683,7 @@ struct InProgressOrdersView: View {
         print("DEBUG: Validating driver assignment for order: \(orderId), driver: \(driverId)")
         let database = Database.database().reference()
         
-        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot in
+        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot, _ in
             if !snapshot.exists() {
                 print("DEBUG: ⚠️ Invalid driver assignment - driver \(driverId) does not exist")
                 // Remove the invalid driver assignment
@@ -1795,7 +1811,7 @@ struct DeliveredOrdersView: View {
             // Try with customerId first
             if !order.customerId.isEmpty {
                 // Fetch both name and phone
-                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot in
+                database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot, _ in
                     if let userData = snapshot.value as? [String: Any] {
                         // Handle name
                         if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
@@ -1815,10 +1831,10 @@ struct DeliveredOrdersView: View {
             }
             
             // Also check users collection with userId if available
-            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot in
+            database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot, _ in
                 if let userId = snapshot.value as? String, !userId.isEmpty {
                     // Try in users collection
-                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot in
+                    database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot, _ in
                         if let userData = userSnapshot.value as? [String: Any] {
                             if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                                 DispatchQueue.main.async {
@@ -1837,7 +1853,7 @@ struct DeliveredOrdersView: View {
             }
             
             // Also try in customers collection
-            database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot in
+            database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot, _ in
                 if let userData = customerSnapshot.value as? [String: Any] {
                     if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
                         DispatchQueue.main.async {
@@ -1866,7 +1882,7 @@ struct DeliveredOrdersView: View {
         database.child("orders")
             .queryOrdered(byChild: "restaurantId")
             .queryEqual(toValue: restaurantId)
-            .observe(.value) { snapshot in
+            .observe(.value) { snapshot, _ in
                 print("DEBUG: Restaurant query returned \(snapshot.childrenCount) orders")
                 
                 var deliveredOrders: [Order] = []

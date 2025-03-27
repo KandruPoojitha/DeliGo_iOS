@@ -21,6 +21,8 @@
 		84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5962D72D18500ACD0AD /* FirebaseDatabase */; };
 		84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5982D72D18500ACD0AD /* FirebaseFunctions */; };
 		84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A59A2D72D18500ACD0AD /* FirebaseStorage */; };
+		84E44B692D95D53800CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */; };
+		84E44B6B2D95D53800CC9411 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44B6A2D95D53800CC9411 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				84E44B6B2D95D53800CC9411 /* FirebaseMessaging in Frameworks */,
 				84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */,
 				84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */,
 				84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */,
@@ -83,6 +86,7 @@
 				84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */,
 				84B1E5A42D8262D500710241 /* StripePayments in Frameworks */,
 				84B1E59A2D8262D500710241 /* Stripe in Frameworks */,
+				84E44B692D95D53800CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +161,8 @@
 				84B1E5A52D8262D500710241 /* StripePaymentsUI */,
 				84B1E5B12D82733D00710241 /* FirebaseAnalytics */,
 				84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */,
+				84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */,
+				84E44B6A2D95D53800CC9411 /* FirebaseMessaging */,
 			);
 			productName = Deligo_iOS;
 			productReference = 84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */;
@@ -720,6 +726,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseInAppMessaging-Beta";
+		};
+		84E44B6A2D95D53800CC9411 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
