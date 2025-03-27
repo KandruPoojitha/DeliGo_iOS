@@ -363,6 +363,26 @@ struct MainCustomerView: View {
                     continue
                 }
                 
+                // Calculate average rating from ratingsandcomments
+                var totalRating: Double = 0
+                var numberOfRatings: Int = 0
+                
+                if let ratingsAndComments = dict["ratingsandcomments"] as? [String: Any],
+                   let ratings = ratingsAndComments["rating"] as? [String: Any] {
+                    for (_, rating) in ratings {
+                        if let ratingValue = rating as? Double {
+                            totalRating += ratingValue
+                            numberOfRatings += 1
+                        } else if let ratingValue = rating as? Int {
+                            totalRating += Double(ratingValue)
+                            numberOfRatings += 1
+                        }
+                    }
+                }
+                
+                let averageRating = numberOfRatings > 0 ? totalRating / Double(numberOfRatings) : 0.0
+                print("DEBUG: Restaurant \(storeInfo["name"] ?? "") has average rating: \(averageRating) from \(numberOfRatings) ratings")
+                
                 // Get location data from the "location" node
                 var latitude: Double = 0
                 var longitude: Double = 0
@@ -410,8 +430,8 @@ struct MainCustomerView: View {
                     priceRange: priceRangeString,
                     minPrice: minPrice,
                     maxPrice: maxPrice,
-                    rating: dict["rating"] as? Double ?? 0.0,
-                    numberOfRatings: dict["numberOfRatings"] as? Int ?? 0,
+                    rating: averageRating,
+                    numberOfRatings: numberOfRatings,
                     address: storeInfo["address"] as? String ?? "",
                     imageURL: storeInfo["imageURL"] as? String,
                     isOpen: dict["isOpen"] as? Bool ?? false,
