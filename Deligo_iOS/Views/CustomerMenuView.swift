@@ -98,6 +98,17 @@ struct CustomerMenuView: View {
                         Text(String(format: "%.1f", restaurant.rating))
                         Text("(\(restaurant.numberOfRatings))")
                             .foregroundColor(.gray)
+                            
+                        Spacer()
+                            
+                        NavigationLink(destination: RestaurantCommentsView(restaurantId: restaurant.id)) {
+                            HStack {
+                                Image(systemName: "bubble.left.fill")
+                                Text("View Reviews")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "F4A261"))
+                        }
                     }
                     .font(.subheadline)
                 }
