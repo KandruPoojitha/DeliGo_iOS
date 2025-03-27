@@ -61,8 +61,12 @@ struct DriverAccountView: View {
                     }
                     
                     Section(header: Text("Earnings")) {
-                        NavigationLink("Payment History") {
-                            Text("Payment History View")
+                        NavigationLink(destination: DriverTipHistoryView(authViewModel: authViewModel)) {
+                            Label("Tip History", systemImage: "dollarsign.circle")
+                        }
+                        
+                        NavigationLink(destination: DriverEarningsHistoryView(authViewModel: authViewModel)) {
+                            Label("Earnings History", systemImage: "chart.bar")
                         }
                         
                         NavigationLink("Bank Details") {
