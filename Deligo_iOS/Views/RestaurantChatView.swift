@@ -2,9 +2,6 @@ import SwiftUI
 import FirebaseDatabase
 
 struct RestaurantChatView: View {
-    let orderId: String
-    let customerId: String
-    let customerName: String
     @ObservedObject var authViewModel: AuthViewModel
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = []
@@ -13,7 +10,36 @@ struct RestaurantChatView: View {
     @State private var alertMessage = ""
     @Environment(\.presentationMode) var presentationMode
     
+    // These parameters are used for order-specific chat
+    var orderId: String
+    var customerId: String
+    var customerName: String
+    
+    // This flag distinguishes between admin support and customer order chat
+    private var isAdminSupportChat: Bool {
+        return orderId == "admin_support" && customerId == "admin"
+    }
+    
+    // For admin support chat, we'll use a ChatManager
+    @StateObject private var chatManager: ChatManager
+    
+    // For direct order chat, we'll use database reference
     private let database = Database.database().reference()
+    
+    init(orderId: String, customerId: String, customerName: String, authViewModel: AuthViewModel) {
+        self.orderId = orderId
+        self.customerId = customerId
+        self.customerName = customerName
+        self.authViewModel = authViewModel
+        
+        // Initialize chat manager for admin support
+        let userId = authViewModel.currentUserId ?? ""
+        _chatManager = StateObject(wrappedValue: ChatManager(
+            userId: userId, 
+            userName: authViewModel.fullName ?? "Restaurant",
+            isAdmin: false
+        ))
+    }
     
     var body: some View {
         VStack {
@@ -27,15 +53,17 @@ struct RestaurantChatView: View {
                         .foregroundColor(.primary)
                 }
                 
-                Text(customerName)
+                Text(isAdminSupportChat ? "Admin Support" : customerName)
                     .font(.headline)
                     .padding(.leading, 8)
                 
                 Spacer()
                 
-                Text("Order #\(orderId.prefix(8))")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                if !isAdminSupportChat {
+                    Text("Order #\(orderId.prefix(8))")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
             }
             .padding()
             
@@ -43,7 +71,7 @@ struct RestaurantChatView: View {
                 Spacer()
                 ProgressView("Loading conversation...")
                 Spacer()
-            } else if messages.isEmpty {
+            } else if isAdminSupportChat ? chatManager.messages.isEmpty : messages.isEmpty {
                 Spacer()
                 VStack(spacing: 20) {
                     Image(systemName: "bubble.left.and.bubble.right")
@@ -51,7 +79,7 @@ struct RestaurantChatView: View {
                         .foregroundColor(.gray)
                     Text("No messages yet")
                         .font(.headline)
-                    Text("Start a conversation with the customer")
+                    Text(isAdminSupportChat ? "Start a conversation with admin support" : "Start a conversation with the customer")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -62,15 +90,24 @@ struct RestaurantChatView: View {
                 ScrollViewReader { scrollView in
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(messages) { message in
-                                MessageBubble(message: message, isFromCurrentUser: message.senderType == "restaurant")
-                                    .id(message.id)
+                            if isAdminSupportChat {
+                                // Admin support messages
+                                ForEach(chatManager.messages) { message in
+                                    MessageBubble(message: message, isFromCurrentUser: message.senderType == "restaurant")
+                                        .id(message.id)
+                                }
+                            } else {
+                                // Order-specific customer messages
+                                ForEach(messages) { message in
+                                    MessageBubble(message: message, isFromCurrentUser: message.senderType == "restaurant")
+                                        .id(message.id)
+                                }
                             }
                         }
                         .padding(.horizontal)
                         .padding(.top)
                     }
-                    .onChange(of: messages) { _, newMessages in
+                    .onChange(of: isAdminSupportChat ? chatManager.messages : messages) { _, newMessages in
                         if let lastMessage = newMessages.last {
                             withAnimation {
                                 scrollView.scrollTo(lastMessage.id, anchor: .bottom)
@@ -78,7 +115,7 @@ struct RestaurantChatView: View {
                         }
                     }
                     .onAppear {
-                        if let lastMessage = messages.last {
+                        if let lastMessage = (isAdminSupportChat ? chatManager.messages.last : messages.last) {
                             scrollView.scrollTo(lastMessage.id, anchor: .bottom)
                         }
                     }
@@ -103,9 +140,15 @@ struct RestaurantChatView: View {
             .padding()
         }
         .onAppear {
-            loadMessages()
             // Ensure user data is loaded
             authViewModel.loadUserProfile()
+            
+            // Load the appropriate messages
+            if isAdminSupportChat {
+                loadAdminSupportMessages()
+            } else {
+                loadOrderMessages()
+            }
             
             // Print debug info
             print("AUTH INFO - UID: \(authViewModel.currentUserId ?? "nil"), Name: \(authViewModel.fullName ?? "nil")")
@@ -120,7 +163,20 @@ struct RestaurantChatView: View {
         }
     }
     
-    private func loadMessages() {
+    // Load messages for admin support chat
+    private func loadAdminSupportMessages() {
+        isLoading = true
+        let threadId = chatManager.getThreadId()
+        chatManager.loadMessages(threadId: threadId)
+        
+        // Add a delay to ensure messages are loaded
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.isLoading = false
+        }
+    }
+    
+    // Load messages for order-specific chat
+    private func loadOrderMessages() {
         isLoading = true
         
         // Reference to the messages for this order
@@ -148,6 +204,7 @@ struct RestaurantChatView: View {
         }
     }
     
+    // Send message to the appropriate channel
     private func sendMessage() {
         let restaurantId = authViewModel.currentUserId ?? "restaurant_unknown"
         let restaurantName = authViewModel.fullName ?? "Restaurant"
@@ -158,47 +215,85 @@ struct RestaurantChatView: View {
             return
         }
         
-        print("Sending message from restaurant \(restaurantName) to order \(orderId)")
-        print("RestaurantId: \(restaurantId)")
-        print("MessageText: \(messageContent)")
-        
-        let messagesRef = database.child("orders").child(orderId).child("messages")
-        let newMessageRef = messagesRef.childByAutoId()
-        
-        let message = [
-            "senderId": restaurantId,
-            "senderName": restaurantName,
-            "senderType": "restaurant",
-            "message": messageContent,
-            "timestamp": ServerValue.timestamp(),
-            "isRead": false
-        ] as [String: Any]
-        
-        print("Message data: \(message)")
-        
-        newMessageRef.setValue(message) { error, _ in
-            if let error = error {
-                print("Error sending message: \(error.localizedDescription)")
+        if isAdminSupportChat {
+            // Send to admin support
+            let threadId = chatManager.getThreadId()
+            chatManager.sendMessage(threadId: threadId, message: messageContent, userRole: "Restaurant") { success in
                 DispatchQueue.main.async {
-                    self.alertMessage = "Failed to send message: \(error.localizedDescription)"
-                    self.showAlert = true
+                    if success {
+                        self.messageText = ""
+                    } else {
+                        self.alertMessage = "Failed to send message. Please try again."
+                        self.showAlert = true
+                    }
                 }
-            } else {
-                print("Message sent successfully!")
-                // Clear the input field
+            }
+        } else {
+            // Send to customer order chat
+            print("Sending message from restaurant \(restaurantName) to order \(orderId)")
+            let messagesRef = database.child("orders").child(orderId).child("messages")
+            let newMessageRef = messagesRef.childByAutoId()
+            
+            let message = [
+                "senderId": restaurantId,
+                "senderName": restaurantName,
+                "senderType": "restaurant",
+                "message": messageContent,
+                "timestamp": ServerValue.timestamp(),
+                "isRead": false
+            ] as [String: Any]
+            
+            print("Message data: \(message)")
+            
+            newMessageRef.setValue(message) { error, _ in
                 DispatchQueue.main.async {
-                    self.messageText = ""
+                    if let error = error {
+                        print("Error sending message: \(error.localizedDescription)")
+                        self.alertMessage = "Failed to send message: \(error.localizedDescription)"
+                        self.showAlert = true
+                    } else {
+                        print("Message sent successfully!")
+                        self.messageText = ""
+                    }
                 }
             }
         }
     }
 }
 
-#Preview {
-    RestaurantChatView(
-        orderId: "order123", 
-        customerId: "customer123",
-        customerName: "Sample Customer",
-        authViewModel: AuthViewModel()
-    )
+struct RestaurantMessageBubble: View {
+    let message: ChatMessage
+    let isFromCurrentUser: Bool
+    
+    var body: some View {
+        HStack {
+            if isFromCurrentUser { Spacer() }
+            
+            VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
+                Text(message.senderName)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                Text(message.message)
+                    .padding(10)
+                    .background(isFromCurrentUser ? Color.blue : Color(.systemGray5))
+                    .foregroundColor(isFromCurrentUser ? .white : .primary)
+                    .cornerRadius(10)
+                
+                Text(message.formattedDate)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            
+            if !isFromCurrentUser { Spacer() }
+        }
+    }
+}
+
+struct RestaurantChatView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            RestaurantChatView(orderId: "admin_support", customerId: "admin", customerName: "Admin", authViewModel: AuthViewModel())
+        }
+    }
 } 
