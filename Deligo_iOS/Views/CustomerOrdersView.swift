@@ -108,13 +108,71 @@ struct CustomerOrdersView: View {
                    let order = orders.first(where: { $0.id == orderId }) {
                     showAcceptedOrderNotification(order: order)
                 }
+                
+                // Show local notification for picked up orders
+                if let newOrderStatus = userInfo["newOrderStatus"] as? String,
+                   newOrderStatus == "picked_up",
+                   let order = orders.first(where: { $0.id == orderId }) {
+                    showPickedUpOrderNotification(order: order)
+                }
             }
         }
+        
+        // Set up real-time listener for order status changes
+        setupOrderStatusListener()
         
         // Check for already accepted orders when view appears
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             checkForAcceptedOrders()
         }
+    }
+    
+    private func setupOrderStatusListener() {
+        guard let userId = authViewModel.currentUserId else { return }
+        
+        let database = Database.database().reference()
+        database.child("orders")
+            .queryOrdered(byChild: "userId")
+            .queryEqual(toValue: userId)
+            .observe(.childChanged) { snapshot in
+                guard let data = snapshot.value as? [String: Any],
+                      let orderStatus = data["order_status"] as? String else { return }
+                
+                let orderId = snapshot.key
+                print("DEBUG: 🔔 Order status changed for order \(orderId): \(orderStatus)")
+                
+                // Create order object
+                if let order = CustomerOrder(id: orderId, data: data) {
+                    // Handle different order statuses
+                    switch orderStatus.lowercased() {
+                    case "accepted":
+                        self.showAcceptedOrderNotification(order: order)
+                    case "picked_up":
+                        self.showPickedUpOrderNotification(order: order)
+                    case "delivering":
+                        self.showDeliveringOrderNotification(order: order)
+                    case "delivered":
+                        self.showDeliveredOrderNotification(order: order)
+                    case "cancelled":
+                        self.showCancelledOrderNotification(order: order)
+                    default:
+                        break
+                    }
+                    
+                    // Post notification for UI updates
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": data["status"] as? String ?? "in_progress",
+                                "newOrderStatus": orderStatus
+                            ]
+                        )
+                    }
+                }
+            }
     }
     
     private func checkForAcceptedOrders() {
@@ -190,6 +248,110 @@ struct CustomerOrdersView: View {
                 "orderStatus": "accepted"
             ]
         )
+    }
+    
+    private func showPickedUpOrderNotification(order: CustomerOrder) {
+        print("DEBUG: 📱 Showing notification for picked up order: \(order.id)")
+        
+        // Create local notification
+        let content = UNMutableNotificationContent()
+        content.title = "Order Picked Up!"
+        content.body = "Your order from \(order.restaurantName) has been picked up and is on its way to you."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "order-\(order.id)-picked-up",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("DEBUG: ❌ Error showing notification: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: ✅ Local notification scheduled successfully")
+            }
+        }
+        
+        // Also post to NotificationCenter for in-app updates
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OrderStatusUpdated"),
+            object: nil,
+            userInfo: [
+                "orderId": order.id,
+                "status": "in_progress",
+                "orderStatus": "picked_up"
+            ]
+        )
+    }
+    
+    private func showDeliveringOrderNotification(order: CustomerOrder) {
+        print("DEBUG: 📱 Showing notification for delivering order: \(order.id)")
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Order Out for Delivery!"
+        content.body = "Your order from \(order.restaurantName) is on its way to you."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "order-\(order.id)-delivering",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("DEBUG: ❌ Error showing notification: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: ✅ Local notification scheduled successfully")
+            }
+        }
+    }
+    
+    private func showDeliveredOrderNotification(order: CustomerOrder) {
+        print("DEBUG: 📱 Showing notification for delivered order: \(order.id)")
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Order Delivered!"
+        content.body = "Your order from \(order.restaurantName) has been delivered. Enjoy your meal!"
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "order-\(order.id)-delivered",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("DEBUG: ❌ Error showing notification: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: ✅ Local notification scheduled successfully")
+            }
+        }
+    }
+    
+    private func showCancelledOrderNotification(order: CustomerOrder) {
+        print("DEBUG: 📱 Showing notification for cancelled order: \(order.id)")
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Order Cancelled"
+        content.body = "Your order from \(order.restaurantName) has been cancelled."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "order-\(order.id)-cancelled",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("DEBUG: ❌ Error showing notification: \(error.localizedDescription)")
+            } else {
+                print("DEBUG: ✅ Local notification scheduled successfully")
+            }
+        }
     }
     
     private func loadOrders() {

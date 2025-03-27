@@ -87,6 +87,40 @@ class DriverOrdersViewModel: ObservableObject {
             updates["order_status"] = "driver_accepted"
         } else if status == .pickedUp {
             updates["order_status"] = "picked_up"
+            
+            // Get order details to send notification
+            ordersRef.child(orderId).observeSingleEvent(of: .value) { [weak self] snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Picked Up!",
+                        body: "Your order from \(restaurantName) has been picked up and is on its way to you.",
+                        data: [
+                            "orderId": orderId,
+                            "status": "in_progress",
+                            "orderStatus": "picked_up",
+                            "type": "order_picked_up"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": "in_progress",
+                                "newOrderStatus": "picked_up"
+                            ]
+                        )
+                    }
+                }
+            }
         } else if status == .delivering {
             updates["order_status"] = "delivering"
         } else if status == .delivered {
