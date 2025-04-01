@@ -3,6 +3,167 @@ import FirebaseDatabase
 import CoreLocation
 import GoogleMaps
 
+struct DriverMainView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @State private var selectedTab = 0
+    
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            // Home Tab
+            DriverHomeView(authViewModel: authViewModel)
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Home")
+                }
+                .tag(0)
+            
+            // Orders Tab
+            DriverOrdersView(authViewModel: authViewModel)
+                .tabItem {
+                    Image(systemName: "list.bullet.rectangle.fill")
+                    Text("Orders")
+                }
+                .tag(1)
+            
+            // Account Tab
+            DriverAccountView(authViewModel: authViewModel)
+                .tabItem {
+                    Image(systemName: "person.fill")
+                    Text("Account")
+                }
+                .tag(2)
+        }
+        .accentColor(Color(hex: "F4A261"))
+    }
+}
+
+struct DriverOrdersView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @State private var currentOrders: [DeliveryOrder] = []
+    @State private var pastOrders: [DeliveryOrder] = []
+    @State private var isLoading = true
+    let database = Database.database().reference()
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                if isLoading {
+                    ProgressView("Loading orders...")
+                } else if currentOrders.isEmpty && pastOrders.isEmpty {
+                    Text("No orders found")
+                        .foregroundColor(.gray)
+                        .padding()
+                } else {
+                    List {
+                        if !currentOrders.isEmpty {
+                            Section(header: Text("Current Orders")) {
+                                ForEach(currentOrders) { order in
+                                    NavigationLink(destination: DriverOrderDetailView(order: order)) {
+                                        OrderRow(order: order)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if !pastOrders.isEmpty {
+                            Section(header: Text("Past Orders")) {
+                                ForEach(pastOrders) { order in
+                                    NavigationLink(destination: DriverOrderDetailView(order: order)) {
+                                        OrderRow(order: order)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(InsetGroupedListStyle())
+                }
+            }
+            .navigationTitle("Orders")
+            .onAppear {
+                loadOrders()
+            }
+        }
+    }
+    
+    private func loadOrders() {
+        guard let userId = authViewModel.currentUserId else { return }
+        isLoading = true
+        
+        database.child("orders")
+            .queryOrdered(byChild: "driverId")
+            .queryEqual(toValue: userId)
+            .observeSingleEvent(of: .value) { snapshot in
+                var currentOrdersList: [DeliveryOrder] = []
+                var pastOrdersList: [DeliveryOrder] = []
+                
+                for child in snapshot.children {
+                    guard let orderSnapshot = child as? DataSnapshot,
+                          let orderData = orderSnapshot.value as? [String: Any],
+                          let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                        continue
+                    }
+                    
+                    let status = orderData["status"] as? String ?? ""
+                    
+                    if status == "delivered" || status == "cancelled" {
+                        pastOrdersList.append(order)
+                    } else {
+                        currentOrdersList.append(order)
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    self.currentOrders = currentOrdersList
+                    self.pastOrders = pastOrdersList
+                    self.isLoading = false
+                }
+            }
+    }
+}
+
+struct OrderRow: View {
+    let order: DeliveryOrder
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Order #\(order.id.suffix(5))")
+                .font(.headline)
+            Text(order.address.formattedAddress)
+                .font(.subheadline)
+                .lineLimit(1)
+            HStack {
+                Text(order.status.capitalized)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor(for: order.status))
+                    .cornerRadius(4)
+                Spacer()
+                Text("$\(String(format: "%.2f", order.total))")
+                    .fontWeight(.semibold)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "pending":
+            return .orange
+        case "accepted":
+            return .blue
+        case "in_progress":
+            return .purple
+        case "delivered":
+            return .green
+        case "cancelled":
+            return .red
+        default:
+            return .gray
+        }
+    }
+}
+
 struct DriverHomeView: View {
     @StateObject private var viewModel = DriverHomeViewModel()
     @ObservedObject var authViewModel: AuthViewModel
@@ -414,133 +575,6 @@ struct DriverHomeView: View {
     }
 }
 
-// Orders tab view
-struct DriverOrdersView: View {
-    @ObservedObject var authViewModel: AuthViewModel
-    @State private var selectedOrderType = 0
-    @State private var currentOrders: [DeliveryOrder] = []
-    @State private var pastOrders: [DeliveryOrder] = []
-    @State private var isLoading = true
-    private let database = Database.database().reference()
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Order type picker
-            Picker("Order Type", selection: $selectedOrderType) {
-                Text("Current").tag(0)
-                Text("Past").tag(1)
-            }
-            .pickerStyle(SegmentedPickerStyle())
-            .padding()
-            
-            if isLoading {
-                ProgressView("Loading orders...")
-                    .padding()
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(selectedOrderType == 0 ? currentOrders : pastOrders) { order in
-                            DriverOrderCard(order: order)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical)
-                }
-            }
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("Orders")
-        .onAppear {
-            loadDriverOrders()
-        }
-    }
-    
-    private func loadDriverOrders() {
-        guard let driverId = authViewModel.currentUserId else { 
-            isLoading = false
-            return 
-        }
-        
-        isLoading = true
-        
-        // Remove any existing observers
-        database.child("orders").removeAllObservers()
-        
-        // Real-time listener for orders assigned to this driver
-        database.child("orders")
-            .queryOrdered(byChild: "driverId")
-            .queryEqual(toValue: driverId)
-            .observe(.value, with: { [self] snapshot in
-                var current: [DeliveryOrder] = []
-                var past: [DeliveryOrder] = []
-                
-                for child in snapshot.children {
-                    guard let orderSnapshot = child as? DataSnapshot,
-                          let orderData = orderSnapshot.value as? [String: Any],
-                          let order = DeliveryOrder(id: orderSnapshot.key, data: orderData),
-                          let status = orderData["status"] as? String else {
-                        continue
-                    }
-                    
-                    // Sort orders into current and past based on status
-                    if status == "delivered" || status == "cancelled" {
-                        past.append(order)
-                    } else {
-                        current.append(order)
-                    }
-                }
-                
-                // Also look for orders with order_status="assigned_driver"
-                self.database.child("orders")
-                    .queryOrdered(byChild: "order_status")
-                    .queryEqual(toValue: "assigned_driver")
-                    .observeSingleEvent(of: .value) { [self] assignedSnapshot in
-                        for child in assignedSnapshot.children {
-                            guard let orderSnapshot = child as? DataSnapshot,
-                                  let orderData = orderSnapshot.value as? [String: Any],
-                                  let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
-                                continue
-                            }
-                            
-                            // Only add if not already in the list and doesn't have a different driver ID
-                            let orderId = orderSnapshot.key
-                            let orderDriverId = orderData["driverId"] as? String
-                            
-                            // If no driver ID or matches this driver, and not already in list
-                            if (orderDriverId == nil || orderDriverId == driverId) && 
-                               !current.contains(where: { $0.id == orderId }) {
-                                current.append(order)
-                                
-                                // Update order with this driver's ID if not set
-                                if orderDriverId == nil {
-                                    database.child("orders").child(orderId).updateChildValues([
-                                        "driverId": driverId,
-                                        "status": "in_progress",
-                                        "order_status": "assigned_driver"
-                                    ])
-                                }
-                            }
-                        }
-                
-                        // Sort orders by created timestamp (newest first)
-                        current.sort { $0.createdAt > $1.createdAt }
-                        past.sort { $0.createdAt > $1.createdAt }
-                        
-                        DispatchQueue.main.async {
-                            self.currentOrders = current
-                            self.pastOrders = past
-                            self.isLoading = false
-                        }
-                    }
-            }) { error in
-                print("Error loading driver orders: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                }
-            }
-    }
-}
-
 // Note: DriverAccountView has been moved to its own file: DriverAccountView.swift
 
 // Card for available orders that the driver can choose to accept
@@ -851,5 +885,5 @@ struct ActiveOrderCard: View {
 }
 
 #Preview {
-    DriverHomeView(authViewModel: AuthViewModel())
+    DriverMainView(authViewModel: AuthViewModel())
 } 

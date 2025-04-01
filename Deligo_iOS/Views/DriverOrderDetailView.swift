@@ -1,10 +1,8 @@
 import SwiftUI
-import MapKit
+import GoogleMaps
 
 struct DriverOrderDetailView: View {
-    let order: DriverOrder
-    let onAccept: () -> Void
-    let onReject: () -> Void
+    let order: DeliveryOrder
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -19,19 +17,17 @@ struct DriverOrderDetailView: View {
             }
             
             // Restaurant Info
-            Text("From: \(order.restaurantName)")
+            Text("From: \(order.restaurantName ?? "Restaurant")")
                 .font(.subheadline)
-            if !order.restaurantAddress.isEmpty {
-                Text(order.restaurantAddress)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
+            Text(order.address.streetAddress)
+                .font(.caption)
+                .foregroundColor(.gray)
             
             // Delivery Address
             VStack(alignment: .leading, spacing: 4) {
                 Text("To:")
                     .foregroundColor(.gray)
-                Text(order.deliveryAddress)
+                Text(order.address.formattedAddress)
                     .font(.subheadline)
             }
             
@@ -46,8 +42,8 @@ struct DriverOrderDetailView: View {
                         Text("\(item.quantity)x")
                             .foregroundColor(.gray)
                         Text(item.name)
-                        if !item.specialInstructions.isEmpty {
-                            Text("(\(item.specialInstructions))")
+                        if let specialInstructions = item.specialInstructions, !specialInstructions.isEmpty {
+                            Text("(\(specialInstructions))")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         }
@@ -90,58 +86,57 @@ struct DriverOrderDetailView: View {
             
             Spacer()
             
-            // Action Buttons
-            HStack(spacing: 16) {
-                Button(action: onReject) {
-                    Text("REJECT")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red.opacity(0.1))
-                        .foregroundColor(.red)
-                        .cornerRadius(12)
-                }
-                
-                Button(action: onAccept) {
-                    Text("ACCEPT ORDER")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
+            // Status information
+            HStack {
+                Text("Status:")
+                    .fontWeight(.semibold)
+                Text(order.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .fontWeight(.semibold)
+                    .foregroundColor(statusColor(for: order.status))
             }
+            .padding(.top, 8)
         }
         .padding()
         .background(Color.white)
         .cornerRadius(16)
         .shadow(radius: 4)
     }
+    
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "pending": return .orange
+        case "accepted": return .blue
+        case "preparing": return .orange
+        case "ready_for_pickup": return .purple
+        case "picked_up": return .purple
+        case "delivering", "on_the_way": return .green
+        case "delivered", "completed": return .green
+        case "cancelled": return .red
+        default: return .gray
+        }
+    }
 }
 
 #Preview {
     // Sample order for preview
-    let sampleOrder = DriverOrder(id: "0D82B4DB", data: [
+    let sampleOrder = DeliveryOrder(id: "0D82B4DB", data: [
         "createdAt": TimeInterval(Date().timeIntervalSince1970),
         "deliveryFee": 5.00,
         "total": 41.27,
         "subtotal": 35.27,
         "tipAmount": 1.00,
         "restaurantName": "McDonald's",
-        "restaurantAddress": "123 Main St, Montreal",
-        "deliveryAddress": "5785 Upper Lachine Road, Montreal, QC, Canada, Unit 3",
+        "address": [
+            "streetAddress": "123 Main St, Montreal",
+            "formattedAddress": "5785 Upper Lachine Road, Montreal, QC, Canada, Unit 3"
+        ],
         "items": [
             ["id": "1", "name": "Big Mac", "price": 15.99, "quantity": 2, "specialInstructions": "No pickles"],
             ["id": "2", "name": "French Fries", "price": 3.29, "quantity": 1]
         ]
     ])
     
-    return DriverOrderDetailView(
-        order: sampleOrder,
-        onAccept: {},
-        onReject: {}
-    )
-    .padding()
-    .background(Color.gray.opacity(0.1))
+    DriverOrderDetailView(order: sampleOrder!)
+        .padding()
+        .background(Color.gray.opacity(0.1))
 } 

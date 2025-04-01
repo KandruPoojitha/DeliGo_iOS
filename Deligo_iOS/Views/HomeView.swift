@@ -18,7 +18,7 @@ struct HomeView: View {
                     }
                 case "Driver":
                     if documentStatus == "approved" {
-                        DriverHomeView(authViewModel: authViewModel)
+                        DriverMainView(authViewModel: authViewModel)
                     } else {
                         DriverDocumentsView(authViewModel: authViewModel)
                     }
