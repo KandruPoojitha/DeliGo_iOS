@@ -7,22 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 84223D672D77FB2700EFC440 /* GoogleMaps */; };
-		84B1E59A2D8262D500710241 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5992D8262D500710241 /* Stripe */; };
-		84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A12D8262D500710241 /* StripePaymentSheet */; };
-		84B1E5A42D8262D500710241 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A32D8262D500710241 /* StripePayments */; };
-		84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5A52D8262D500710241 /* StripePaymentsUI */; };
-		84B1E5B22D82733D00710241 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5B12D82733D00710241 /* FirebaseAnalytics */; };
-		84B1E5B62D82733D00710241 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */; };
-		84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E12D79948C00D1F76A /* GooglePlaces */; };
-		84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */; };
-		84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5922D72D18500ACD0AD /* FirebaseAuth */; };
-		84D6A5952D72D18500ACD0AD /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5942D72D18500ACD0AD /* FirebaseCore */; };
-		84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5962D72D18500ACD0AD /* FirebaseDatabase */; };
-		84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A5982D72D18500ACD0AD /* FirebaseFunctions */; };
-		84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 84D6A59A2D72D18500ACD0AD /* FirebaseStorage */; };
-		84E44B692D95D53800CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */; };
-		84E44B6B2D95D53800CC9411 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44B6A2D95D53800CC9411 /* FirebaseMessaging */; };
+		845A9A742D9B841900FAB59F /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 845A9A732D9B841900FAB59F /* StripePaymentSheet */; };
+		84E44C122D9B60FB00CC9411 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C112D9B60FB00CC9411 /* FirebaseAuth */; };
+		84E44C142D9B60FB00CC9411 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C132D9B60FB00CC9411 /* FirebaseCore */; };
+		84E44C162D9B60FB00CC9411 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C152D9B60FB00CC9411 /* FirebaseDatabase */; };
+		84E44C182D9B60FB00CC9411 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C172D9B60FB00CC9411 /* FirebaseFirestore */; };
+		84E44C1A2D9B60FB00CC9411 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C192D9B60FB00CC9411 /* FirebaseFunctions */; };
+		84E44C1C2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C1B2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta */; };
+		84E44C1E2D9B60FB00CC9411 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C1D2D9B60FB00CC9411 /* FirebaseMessaging */; };
+		84E44C202D9B60FB00CC9411 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C1F2D9B60FB00CC9411 /* FirebaseStorage */; };
+		84E44C2E2D9B616A00CC9411 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C2D2D9B616A00CC9411 /* GoogleMaps */; };
+		84E44C312D9B619000CC9411 /* GooglePlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C302D9B619000CC9411 /* GooglePlaces */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,22 +66,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E44B6B2D95D53800CC9411 /* FirebaseMessaging in Frameworks */,
-				84223D682D77FB2700EFC440 /* GoogleMaps in Frameworks */,
-				84B1E5A22D8262D500710241 /* StripePaymentSheet in Frameworks */,
-				84D6A5972D72D18500ACD0AD /* FirebaseDatabase in Frameworks */,
-				84B1E5A62D8262D500710241 /* StripePaymentsUI in Frameworks */,
-				84D4E0E22D79948C00D1F76A /* GooglePlaces in Frameworks */,
-				84D4E0E42D79948C00D1F76A /* GooglePlacesSwift in Frameworks */,
-				84D6A5952D72D18500ACD0AD /* FirebaseCore in Frameworks */,
-				84D6A5932D72D18500ACD0AD /* FirebaseAuth in Frameworks */,
-				84D6A59B2D72D18500ACD0AD /* FirebaseStorage in Frameworks */,
-				84B1E5B22D82733D00710241 /* FirebaseAnalytics in Frameworks */,
-				84B1E5B62D82733D00710241 /* FirebaseFunctionsCombine-Community in Frameworks */,
-				84D6A5992D72D18500ACD0AD /* FirebaseFunctions in Frameworks */,
-				84B1E5A42D8262D500710241 /* StripePayments in Frameworks */,
-				84B1E59A2D8262D500710241 /* Stripe in Frameworks */,
-				84E44B692D95D53800CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				84E44C162D9B60FB00CC9411 /* FirebaseDatabase in Frameworks */,
+				84E44C182D9B60FB00CC9411 /* FirebaseFirestore in Frameworks */,
+				84E44C312D9B619000CC9411 /* GooglePlaces in Frameworks */,
+				84E44C1E2D9B60FB00CC9411 /* FirebaseMessaging in Frameworks */,
+				84E44C1A2D9B60FB00CC9411 /* FirebaseFunctions in Frameworks */,
+				84E44C142D9B60FB00CC9411 /* FirebaseCore in Frameworks */,
+				84E44C202D9B60FB00CC9411 /* FirebaseStorage in Frameworks */,
+				84E44C122D9B60FB00CC9411 /* FirebaseAuth in Frameworks */,
+				84E44C1C2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				845A9A742D9B841900FAB59F /* StripePaymentSheet in Frameworks */,
+				84E44C2E2D9B616A00CC9411 /* GoogleMaps in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,22 +137,17 @@
 			);
 			name = Deligo_iOS;
 			packageProductDependencies = (
-				84D6A5922D72D18500ACD0AD /* FirebaseAuth */,
-				84D6A5942D72D18500ACD0AD /* FirebaseCore */,
-				84D6A5962D72D18500ACD0AD /* FirebaseDatabase */,
-				84D6A5982D72D18500ACD0AD /* FirebaseFunctions */,
-				84D6A59A2D72D18500ACD0AD /* FirebaseStorage */,
-				84223D672D77FB2700EFC440 /* GoogleMaps */,
-				84D4E0E12D79948C00D1F76A /* GooglePlaces */,
-				84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */,
-				84B1E5992D8262D500710241 /* Stripe */,
-				84B1E5A12D8262D500710241 /* StripePaymentSheet */,
-				84B1E5A32D8262D500710241 /* StripePayments */,
-				84B1E5A52D8262D500710241 /* StripePaymentsUI */,
-				84B1E5B12D82733D00710241 /* FirebaseAnalytics */,
-				84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */,
-				84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */,
-				84E44B6A2D95D53800CC9411 /* FirebaseMessaging */,
+				84E44C112D9B60FB00CC9411 /* FirebaseAuth */,
+				84E44C132D9B60FB00CC9411 /* FirebaseCore */,
+				84E44C152D9B60FB00CC9411 /* FirebaseDatabase */,
+				84E44C172D9B60FB00CC9411 /* FirebaseFirestore */,
+				84E44C192D9B60FB00CC9411 /* FirebaseFunctions */,
+				84E44C1B2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta */,
+				84E44C1D2D9B60FB00CC9411 /* FirebaseMessaging */,
+				84E44C1F2D9B60FB00CC9411 /* FirebaseStorage */,
+				84E44C2D2D9B616A00CC9411 /* GoogleMaps */,
+				84E44C302D9B619000CC9411 /* GooglePlaces */,
+				845A9A732D9B841900FAB59F /* StripePaymentSheet */,
 			);
 			productName = Deligo_iOS;
 			productReference = 84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */;
@@ -248,10 +233,10 @@
 			mainGroup = 84D6A54D2D72D0A900ACD0AD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
-				84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */,
-				84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+				84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				84E44C2C2D9B616A00CC9411 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
+				84E44C2F2D9B619000CC9411 /* XCRemoteSwiftPackageReference "ios-places-sdk" */,
+				845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 84D6A5572D72D0A900ACD0AD /* Products */;
@@ -622,120 +607,95 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+		845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/stripe/stripe-ios";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 24.7.0;
+				minimumVersion = 24.9.0;
 			};
 		};
-		84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/googlemaps/ios-places-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 9.3.0;
-			};
-		};
-		84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+		84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 11.9.0;
+				minimumVersion = 11.11.0;
 			};
 		};
-		84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
+		84E44C2C2D9B616A00CC9411 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 9.3.0;
+				minimumVersion = 9.4.0;
+			};
+		};
+		84E44C2F2D9B619000CC9411 /* XCRemoteSwiftPackageReference "ios-places-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-places-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.4.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		84223D672D77FB2700EFC440 /* GoogleMaps */ = {
+		845A9A732D9B841900FAB59F /* StripePaymentSheet */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A6142D76296200ACD0AD /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
-			productName = GoogleMaps;
-		};
-		84B1E5992D8262D500710241 /* Stripe */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = Stripe;
-		};
-		84B1E5A12D8262D500710241 /* StripePaymentSheet */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			package = 845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripePaymentSheet;
 		};
-		84B1E5A32D8262D500710241 /* StripePayments */ = {
+		84E44C112D9B60FB00CC9411 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = StripePayments;
-		};
-		84B1E5A52D8262D500710241 /* StripePaymentsUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84B1E5982D8262D500710241 /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = StripePaymentsUI;
-		};
-		84B1E5B12D82733D00710241 /* FirebaseAnalytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalytics;
-		};
-		84B1E5B52D82733D00710241 /* FirebaseFunctionsCombine-Community */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = "FirebaseFunctionsCombine-Community";
-		};
-		84D4E0E12D79948C00D1F76A /* GooglePlaces */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */;
-			productName = GooglePlaces;
-		};
-		84D4E0E32D79948C00D1F76A /* GooglePlacesSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D4E0E02D79948C00D1F76A /* XCRemoteSwiftPackageReference "ios-places-sdk" */;
-			productName = GooglePlacesSwift;
-		};
-		84D6A5922D72D18500ACD0AD /* FirebaseAuth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAuth;
 		};
-		84D6A5942D72D18500ACD0AD /* FirebaseCore */ = {
+		84E44C132D9B60FB00CC9411 /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
 		};
-		84D6A5962D72D18500ACD0AD /* FirebaseDatabase */ = {
+		84E44C152D9B60FB00CC9411 /* FirebaseDatabase */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseDatabase;
 		};
-		84D6A5982D72D18500ACD0AD /* FirebaseFunctions */ = {
+		84E44C172D9B60FB00CC9411 /* FirebaseFirestore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		84E44C192D9B60FB00CC9411 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFunctions;
 		};
-		84D6A59A2D72D18500ACD0AD /* FirebaseStorage */ = {
+		84E44C1B2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseStorage;
-		};
-		84E44B682D95D53800CC9411 /* FirebaseInAppMessaging-Beta */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = "FirebaseInAppMessaging-Beta";
 		};
-		84E44B6A2D95D53800CC9411 /* FirebaseMessaging */ = {
+		84E44C1D2D9B60FB00CC9411 /* FirebaseMessaging */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84D6A5912D72D18500ACD0AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		84E44C1F2D9B60FB00CC9411 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84E44C102D9B60FB00CC9411 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		84E44C2D2D9B616A00CC9411 /* GoogleMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84E44C2C2D9B616A00CC9411 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;
+			productName = GoogleMaps;
+		};
+		84E44C302D9B619000CC9411 /* GooglePlaces */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84E44C2F2D9B619000CC9411 /* XCRemoteSwiftPackageReference "ios-places-sdk" */;
+			productName = GooglePlaces;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -206,22 +206,41 @@ struct DriverDashboardView: View {
     private func setupActiveOrderListener() {
         guard let userId = authViewModel.currentUserId else { return }
         
-        // Listen for changes to the currentOrderId
-        database.child("drivers").child(userId).child("currentOrderId")
-            .observe(.value) { snapshot in
-                if let currentOrderId = snapshot.value as? String {
-                    // If there's a current order ID, observe that order for changes
-                    database.child("orders").child(currentOrderId)
-                        .observe(.value) { orderSnapshot in
-                            if let orderData = orderSnapshot.value as? [String: Any],
-                               let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) {
-                                DispatchQueue.main.async {
-                                    self.activeOrder = order
-                                }
+        // Query orders assigned to this driver
+        database.child("orders")
+            .queryOrdered(byChild: "driverId")
+            .queryEqual(toValue: userId)
+            .observe(.value) { [self] snapshot in
+                var foundActiveOrder = false
+                
+                for child in snapshot.children {
+                    guard let orderSnapshot = child as? DataSnapshot,
+                          let orderData = orderSnapshot.value as? [String: Any],
+                          let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                        continue
+                    }
+                    
+                    let status = orderData["status"] as? String ?? ""
+                    let orderStatus = orderData["order_status"] as? String ?? ""
+                    print("Found order in active listener: \(order.id) with status: \(status) and orderStatus: \(orderStatus)")
+                    
+                    // Check if this is an active order (not delivered or cancelled)
+                    if status != "delivered" && status != "cancelled" {
+                        if status == "in_progress" && orderStatus == "assigned_driver" {
+                            foundActiveOrder = true
+                            print("Setting active order in listener: \(order.id)")
+                            
+                            // Set as active order
+                            DispatchQueue.main.async {
+                                self.activeOrder = order
                             }
+                            break
                         }
-                } else {
-                    // If there's no current order ID, clear the active order
+                    }
+                }
+                
+                // If no active order found, clear the activeOrder
+                if !foundActiveOrder {
                     DispatchQueue.main.async {
                         self.activeOrder = nil
                     }
@@ -286,33 +305,127 @@ struct DriverDashboardView: View {
     }
     
     private func loadAvailableOrders() {
-        // Remove the guard so we always load available orders regardless of isAvailable state
-        isLoading = true
+        guard let userId = authViewModel.currentUserId else {
+            isLoading = false
+            return
+        }
         
+        isLoading = true
+        print("Loading orders for driver: \(userId)")
+        
+        // Remove any existing observers
+        database.child("orders").removeAllObservers()
+        
+        // Query orders assigned to this driver
         database.child("orders")
-            .queryOrdered(byChild: "status")
-            .queryEqual(toValue: "pending")
-            .observeSingleEvent(of: .value, with: { snapshot in
+            .queryOrdered(byChild: "driverId")
+            .queryEqual(toValue: userId)
+            .observe(.value) { [self] snapshot in
+                print("Checking orders assigned to driver: \(userId)")
+                print("Found \(snapshot.childrenCount) orders for this driver")
+                
                 var orders: [DeliveryOrder] = []
+                var foundActiveOrder = false
                 
                 for child in snapshot.children {
                     guard let orderSnapshot = child as? DataSnapshot,
-                          let orderData = orderSnapshot.value as? [String: Any],
-                          let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                          let orderData = orderSnapshot.value as? [String: Any] else {
+                        print("Failed to get order data from snapshot")
                         continue
                     }
-                    orders.append(order)
+                    
+                    // Debug print all fields
+                    print("Order data for \(orderSnapshot.key):")
+                    print("userId: \(orderData["userId"] as? String ?? "missing")")
+                    print("restaurantId: \(orderData["restaurantId"] as? String ?? "missing")")
+                    print("restaurantName: \(orderData["restaurantName"] as? String ?? "missing")")
+                    print("subtotal: \(orderData["subtotal"] as? Double ?? -1)")
+                    print("total: \(orderData["total"] as? Double ?? -1)")
+                    print("deliveryOption: \(orderData["deliveryOption"] as? String ?? "missing")")
+                    print("paymentMethod: \(orderData["paymentMethod"] as? String ?? "missing")")
+                    print("status: \(orderData["status"] as? String ?? "missing")")
+                    
+                    guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                        print("Failed to create DeliveryOrder object")
+                        continue
+                    }
+                    
+                    let status = orderData["status"] as? String ?? ""
+                    let orderStatus = orderData["order_status"] as? String ?? ""
+                    print("Processing order: \(order.id)")
+                    print("Status: \(status), OrderStatus: \(orderStatus)")
+                    
+                    // If order is not delivered or cancelled
+                    if status != "delivered" && status != "cancelled" {
+                        print("Order is active (not delivered/cancelled)")
+                        
+                        // Check both status combinations
+                        if (status == "in_progress" && orderStatus == "assigned_driver") ||
+                           (status == "assigned_driver" && orderStatus == "pending_driver_acceptance") {
+                            print("Setting as active order: \(order.id)")
+                            foundActiveOrder = true
+                            DispatchQueue.main.async {
+                                self.activeOrder = order
+                            }
+                        } else {
+                            print("Adding to available orders: \(order.id)")
+                            orders.append(order)
+                        }
+                    } else {
+                        print("Order is completed or cancelled: \(order.id)")
+                    }
                 }
                 
-                DispatchQueue.main.async {
-                    self.availableOrders = orders
-                    self.isLoading = false
-                }
-            }) { error in
-                print("Error loading orders: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                }
+                // Then check for pending orders that aren't assigned to any driver
+                database.child("orders")
+                    .queryOrdered(byChild: "status")
+                    .queryEqual(toValue: "pending")
+                    .observe(.value) { [self] pendingSnapshot in
+                        print("Checking pending orders")
+                        print("Found \(pendingSnapshot.childrenCount) pending orders")
+                        
+                        for child in pendingSnapshot.children {
+                            guard let orderSnapshot = child as? DataSnapshot,
+                                  let orderData = orderSnapshot.value as? [String: Any] else {
+                                print("Failed to get pending order data from snapshot")
+                                continue
+                            }
+                            
+                            // Debug print all fields for pending orders
+                            print("Pending order data for \(orderSnapshot.key):")
+                            print("userId: \(orderData["userId"] as? String ?? "missing")")
+                            print("restaurantId: \(orderData["restaurantId"] as? String ?? "missing")")
+                            print("restaurantName: \(orderData["restaurantName"] as? String ?? "missing")")
+                            print("subtotal: \(orderData["subtotal"] as? Double ?? -1)")
+                            print("total: \(orderData["total"] as? Double ?? -1)")
+                            print("deliveryOption: \(orderData["deliveryOption"] as? String ?? "missing")")
+                            print("paymentMethod: \(orderData["paymentMethod"] as? String ?? "missing")")
+                            print("status: \(orderData["status"] as? String ?? "missing")")
+                            
+                            guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                                print("Failed to create DeliveryOrder object for pending order")
+                                continue
+                            }
+                            
+                            // Only add pending orders that aren't assigned to any driver
+                            if orderData["driverId"] == nil {
+                                print("Found unassigned pending order: \(order.id)")
+                                orders.append(order)
+                            } else {
+                                print("Skipping assigned pending order: \(order.id)")
+                            }
+                        }
+                        
+                        // Sort orders by creation time (newest first)
+                        orders.sort { $0.createdAt > $1.createdAt }
+                        
+                        DispatchQueue.main.async {
+                            print("Updating UI with \(orders.count) available orders")
+                            print("Active order status: \(self.activeOrder?.id ?? "none")")
+                            self.availableOrders = orders
+                            self.isLoading = false
+                        }
+                    }
             }
     }
     
@@ -437,11 +550,14 @@ struct DriverOrdersView: View {
         
         isLoading = true
         
-        // Load current orders (assigned but not delivered)
+        // Remove any existing observers
+        database.child("orders").removeAllObservers()
+        
+        // Real-time listener for orders assigned to this driver
         database.child("orders")
             .queryOrdered(byChild: "driverId")
             .queryEqual(toValue: driverId)
-            .observeSingleEvent(of: .value, with: { snapshot in
+            .observe(.value, with: { [self] snapshot in
                 var current: [DeliveryOrder] = []
                 var past: [DeliveryOrder] = []
                 
@@ -461,15 +577,48 @@ struct DriverOrdersView: View {
                     }
                 }
                 
-                // Sort orders by created timestamp (newest first)
-                current.sort { $0.createdAt > $1.createdAt }
-                past.sort { $0.createdAt > $1.createdAt }
+                // Also look for orders with order_status="assigned_driver"
+                self.database.child("orders")
+                    .queryOrdered(byChild: "order_status")
+                    .queryEqual(toValue: "assigned_driver")
+                    .observeSingleEvent(of: .value) { [self] assignedSnapshot in
+                        for child in assignedSnapshot.children {
+                            guard let orderSnapshot = child as? DataSnapshot,
+                                  let orderData = orderSnapshot.value as? [String: Any],
+                                  let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                                continue
+                            }
+                            
+                            // Only add if not already in the list and doesn't have a different driver ID
+                            let orderId = orderSnapshot.key
+                            let orderDriverId = orderData["driverId"] as? String
+                            
+                            // If no driver ID or matches this driver, and not already in list
+                            if (orderDriverId == nil || orderDriverId == driverId) && 
+                               !current.contains(where: { $0.id == orderId }) {
+                                current.append(order)
+                                
+                                // Update order with this driver's ID if not set
+                                if orderDriverId == nil {
+                                    database.child("orders").child(orderId).updateChildValues([
+                                        "driverId": driverId,
+                                        "status": "in_progress",
+                                        "order_status": "assigned_driver"
+                                    ])
+                                }
+                            }
+                        }
                 
-                DispatchQueue.main.async {
-                    self.currentOrders = current
-                    self.pastOrders = past
-                    self.isLoading = false
-                }
+                        // Sort orders by created timestamp (newest first)
+                        current.sort { $0.createdAt > $1.createdAt }
+                        past.sort { $0.createdAt > $1.createdAt }
+                        
+                        DispatchQueue.main.async {
+                            self.currentOrders = current
+                            self.pastOrders = past
+                            self.isLoading = false
+                        }
+                    }
             }) { error in
                 print("Error loading driver orders: \(error.localizedDescription)")
                 DispatchQueue.main.async {
@@ -660,7 +809,7 @@ struct ActiveOrderCard: View {
     private var directStatusTransition: String? {
         switch order.status {
         case "assigned_driver":
-            return "driver_accepted" // First transition is to accept the order
+            return nil // No direct transition, needs accept/reject buttons
         case "preparing", "ready_for_pickup":
             return "picked_up"
         case "picked_up":
@@ -748,47 +897,41 @@ struct ActiveOrderCard: View {
             
             Divider()
             
-            ForEach(order.items) { item in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("\(item.quantity)x \(item.name)")
-                            .font(.subheadline)
-                        if let specialInstructions = item.specialInstructions, !specialInstructions.isEmpty {
-                            Text("Note: \(specialInstructions)")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+            // Show accept/reject buttons for assigned orders
+            if order.status == "assigned_driver" {
+                HStack(spacing: 16) {
+                    // Accept button
+                    Button(action: {
+                        onUpdateStatus("driver_accepted")
+                    }) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Accept")
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                     }
-                    Spacer()
-                    Text(formatPrice(item.totalPrice))
-                        .font(.subheadline)
+                    
+                    // Reject button
+                    Button(action: {
+                        onUpdateStatus("rejected")
+                    }) {
+                        HStack {
+                            Image(systemName: "xmark.circle.fill")
+                            Text("Reject")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.red)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
                 }
-                Divider()
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Delivery Address:")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text("\(order.address.streetAddress)")
-                    .font(.subheadline)
-                if let unit = order.address.unit, !unit.isEmpty {
-                    Text("Unit: \(unit)")
-                        .font(.subheadline)
-                }
-                Text("\(order.address.city), \(order.address.state) \(order.address.zipCode)")
-                    .font(.subheadline)
-                
-                if let instructions = order.address.instructions, !instructions.isEmpty {
-                    Text("Instructions: \(instructions)")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(.vertical, 4)
-            
-            if hasAvailableAction {
+            } else if hasAvailableAction {
+                // Show single action button for other statuses
                 Button(action: {
                     if let nextStatus = directStatusTransition {
                         onUpdateStatus(nextStatus)
@@ -796,24 +939,15 @@ struct ActiveOrderCard: View {
                         showingActionSheet = true
                     }
                 }) {
-                    Text(actionButtonText)
-                        .fontWeight(order.status == "assigned_driver" ? .bold : .regular)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(actionButtonColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .actionSheet(isPresented: $showingActionSheet) {
-                    ActionSheet(
-                        title: Text("Update Order Status"),
-                        message: Text("Choose the new status for this order"),
-                        buttons: [
-                            .default(Text("Mark as Picked Up")) { onUpdateStatus("picked_up") },
-                            .default(Text("Mark as Delivered")) { onUpdateStatus("delivered") },
-                            .cancel()
-                        ]
-                    )
+                    HStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                        Text(actionButtonText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(actionButtonColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
                 }
             }
         }
@@ -824,7 +958,10 @@ struct ActiveOrderCard: View {
     }
     
     private func formatPrice(_ price: Double) -> String {
-        return "$\(String(format: "%.2f", price))"
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        return formatter.string(from: NSNumber(value: price)) ?? "$\(String(format: "%.2f", price))"
     }
 }
 

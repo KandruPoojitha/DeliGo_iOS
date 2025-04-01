@@ -3,10 +3,14 @@ import Firebase
 import UserNotifications
 import FirebaseMessaging
 import FirebaseAuth
+import GoogleMaps
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        
+        // Initialize Google Maps
+        GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY")
         
         // Request notification permission
         UNUserNotificationCenter.current().delegate = self

@@ -1,10 +1,12 @@
 import Foundation
 import FirebaseDatabase
+import CoreLocation
 
 struct DeliveryOrder: Identifiable {
     let id: String
     let userId: String
     let restaurantId: String
+    let restaurantName: String?
     let items: [DeliveryOrderItem]
     let subtotal: Double
     let tipAmount: Double
@@ -20,6 +22,7 @@ struct DeliveryOrder: Identifiable {
     var driverName: String?
     
     init?(id: String, data: [String: Any]) {
+        print("Attempting to create DeliveryOrder with id: \(id)")
         self.id = id
         
         guard let userId = data["userId"] as? String,
@@ -29,11 +32,20 @@ struct DeliveryOrder: Identifiable {
               let deliveryOption = data["deliveryOption"] as? String,
               let paymentMethod = data["paymentMethod"] as? String,
               let status = data["status"] as? String else {
+            print("Failed to initialize DeliveryOrder - Missing required fields")
+            print("userId: \(data["userId"] as? String ?? "missing")")
+            print("restaurantId: \(data["restaurantId"] as? String ?? "missing")")
+            print("subtotal: \(data["subtotal"] as? Double ?? -1)")
+            print("total: \(data["total"] as? Double ?? -1)")
+            print("deliveryOption: \(data["deliveryOption"] as? String ?? "missing")")
+            print("paymentMethod: \(data["paymentMethod"] as? String ?? "missing")")
+            print("status: \(data["status"] as? String ?? "missing")")
             return nil
         }
         
         self.userId = userId
         self.restaurantId = restaurantId
+        self.restaurantName = data["restaurantName"] as? String
         self.subtotal = subtotal
         self.tipAmount = data["tipAmount"] as? Double ?? 0.0
         self.deliveryFee = data["deliveryFee"] as? Double ?? 0.0
@@ -49,6 +61,7 @@ struct DeliveryOrder: Identifiable {
         // Parse order items
         var orderItems: [DeliveryOrderItem] = []
         if let itemsData = data["items"] as? [[String: Any]] {
+            print("Found \(itemsData.count) items")
             for itemData in itemsData {
                 if let item = DeliveryOrderItem(data: itemData) {
                     orderItems.append(item)
@@ -58,8 +71,7 @@ struct DeliveryOrder: Identifiable {
         self.items = orderItems
         
         // Parse delivery address
-        if deliveryOption.lowercased() == "delivery",
-           let addressData = data["address"] as? [String: Any] {
+        if let addressData = data["address"] as? [String: Any] {
             self.address = DeliveryAddress(
                 streetAddress: addressData["street"] as? String ?? "",
                 city: addressData["city"] as? String ?? "",
@@ -72,7 +84,7 @@ struct DeliveryOrder: Identifiable {
                 placeID: addressData["placeID"] as? String ?? ""
             )
         } else {
-            // Default empty address for pickup orders
+            // Default empty address
             self.address = DeliveryAddress(
                 streetAddress: "",
                 city: "",
@@ -80,11 +92,13 @@ struct DeliveryOrder: Identifiable {
                 zipCode: "",
                 unit: nil,
                 instructions: nil,
-                latitude: 0.0,
-                longitude: 0.0,
+                latitude: data["latitude"] as? Double ?? 0.0,
+                longitude: data["longitude"] as? Double ?? 0.0,
                 placeID: ""
             )
         }
+        
+        print("Successfully created DeliveryOrder with id: \(id)")
     }
     
     // Add a method to convert the order back to a dictionary
@@ -92,6 +106,7 @@ struct DeliveryOrder: Identifiable {
         var dict: [String: Any] = [
             "userId": userId,
             "restaurantId": restaurantId,
+            "restaurantName": restaurantName ?? "",
             "subtotal": subtotal,
             "tipAmount": tipAmount,
             "deliveryFee": deliveryFee,
@@ -188,6 +203,18 @@ struct DeliveryOrder: Identifiable {
         dict["items"] = itemsArray
         
         return dict
+    }
+    
+    var restaurantLocation: CLLocationCoordinate2D? {
+        // Convert restaurant address to coordinates
+        // This is a placeholder - you'll need to implement geocoding
+        return CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+    }
+    
+    var deliveryLocation: CLLocationCoordinate2D? {
+        // Convert delivery address to coordinates
+        // This is a placeholder - you'll need to implement geocoding
+        return CLLocationCoordinate2D(latitude: 37.7833, longitude: -122.4167)
     }
 }
 

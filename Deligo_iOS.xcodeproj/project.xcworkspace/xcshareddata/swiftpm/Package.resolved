@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/firebase/firebase-ios-sdk.git",
       "state" : {
-        "revision" : "eb523407e4293568ed55590728205c359cbecc5b",
-        "version" : "11.9.0"
+        "revision" : "d1f7c7e8eaa74d7e44467184dc5f592268247d33",
+        "version" : "11.11.0"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/GoogleAppMeasurement.git",
       "state" : {
-        "revision" : "d80e25104abe76d69a134d4ec18f011edd8df06c",
-        "version" : "11.9.0"
+        "revision" : "dd89fc79a77183830742a16866d87e4e54785734",
+        "version" : "11.11.0"
       }
     },
     {
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/googlemaps/ios-maps-sdk",
       "state" : {
-        "revision" : "9fa352d6eca4a731949efcdb27ed851f1fcd4447",
-        "version" : "9.3.0"
+        "revision" : "02f8f144ef266da44d50a68d1562ca051bac27cc",
+        "version" : "9.4.0"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/googlemaps/ios-places-sdk",
       "state" : {
-        "revision" : "d4f4b9b3b6c45452f94cee45d64cf60f2fa174dc",
-        "version" : "9.3.0"
+        "revision" : "f18c63a43ed8399a81e539525983377d63b7b003",
+        "version" : "9.4.1"
       }
     },
     {
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/stripe/stripe-ios",
       "state" : {
-        "revision" : "9df61faa729c6689eeacbe1079af75148bd26232",
-        "version" : "24.7.0"
+        "revision" : "6cfff328f53bc8ed167ff34ad853ff09f5799d81",
+        "version" : "24.9.0"
       }
     },
     {
