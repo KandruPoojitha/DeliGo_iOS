@@ -146,8 +146,8 @@ struct LoginView: View {
         } message: {
             Text(authViewModel.errorMessage ?? "")
         }
-        .onChange(of: authViewModel.isAuthenticated) { isAuthenticated in
-            if isAuthenticated {
+        .onChange(of: authViewModel.isAuthenticated) { oldValue, newValue in
+            if newValue {
                 email = ""
                 password = ""
             }

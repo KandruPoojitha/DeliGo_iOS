@@ -11,7 +11,19 @@ struct CheckoutView: View {
     @State private var deliveryOption: DeliveryOption = DeliveryOption.delivery
     @State private var paymentMethod: PaymentMethod = PaymentMethod.card
     @State private var tipPercentage: Double = 15.0
-    @State private var deliveryAddress = DeliveryAddress(streetAddress: "", unit: "", instructions: "")
+    @State private var deliveryAddress = DeliveryAddress(
+        streetAddress: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        unit: nil,
+        instructions: nil,
+        latitude: 0.0,
+        longitude: 0.0,
+        placeID: ""
+    )
+    @State private var unitText: String = ""
+    @State private var instructionsText: String = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isProcessingPayment = false
@@ -65,6 +77,11 @@ struct CheckoutView: View {
                     }
                 }
             )
+        }
+        .onAppear {
+            // Initialize the text fields from optional values
+            unitText = deliveryAddress.unit ?? ""
+            instructionsText = deliveryAddress.instructions ?? ""
         }
     }
     
@@ -129,8 +146,8 @@ struct CheckoutView: View {
                 
                 TextField("Enter your street address", text: $locationSearchVM.searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onChange(of: locationSearchVM.searchText) { _ in
-                        showingSuggestions = !locationSearchVM.searchText.isEmpty
+                    .onChange(of: locationSearchVM.searchText) { oldValue, newValue in
+                        showingSuggestions = !newValue.isEmpty
                     }
                 
                 if showingSuggestions && !locationSearchVM.suggestions.isEmpty {
@@ -170,8 +187,11 @@ struct CheckoutView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
-                TextField("Enter unit or apartment number", text: $deliveryAddress.unit)
+                TextField("Enter unit or apartment number", text: $unitText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .onChange(of: unitText) { _, newValue in
+                        deliveryAddress.unit = newValue.isEmpty ? nil : newValue
+                    }
             }
             
             VStack(alignment: .leading, spacing: 8) {
@@ -179,7 +199,7 @@ struct CheckoutView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
-                TextEditor(text: $deliveryAddress.instructions)
+                TextEditor(text: $instructionsText)
                     .frame(height: 100)
                     .padding(8)
                     .background(Color(.systemGray6))
@@ -188,6 +208,9 @@ struct CheckoutView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color(.systemGray4), lineWidth: 1)
                     )
+                    .onChange(of: instructionsText) { _, newValue in
+                        deliveryAddress.instructions = newValue.isEmpty ? nil : newValue
+                    }
             }
             
             Divider()
@@ -305,7 +328,7 @@ struct CheckoutView: View {
     
     private var isValidOrder: Bool {
         if deliveryOption == DeliveryOption.delivery {
-            return !deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return !deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
                 && !cartManager.cartItems.isEmpty
         }
         return !cartManager.cartItems.isEmpty
@@ -324,7 +347,7 @@ struct CheckoutView: View {
             return
         }
         
-        if deliveryOption == DeliveryOption.delivery && deliveryAddress.streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if deliveryOption == DeliveryOption.delivery && deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty {
             alertMessage = "Error: Please provide a delivery address"
             showingAlert = true
             return
@@ -346,7 +369,7 @@ struct CheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentId):
-                    self.createOrder(userId: userId, status: "paid", paymentIntentId: paymentIntentId)
+                    self.createOrder(userId: userId, status: "pending", paymentIntentId: paymentIntentId)
                 case .failure(let error):
                     self.isProcessingPayment = false
                     self.alertMessage = "Payment failed: \(error.localizedDescription)"
@@ -362,10 +385,28 @@ struct CheckoutView: View {
     
     private func createOrder(userId: String, status: String, paymentIntentId: String?) {
         let orderId = UUID().uuidString
+        
+        // Get the restaurant ID from the first cart item since we've validated all items are from the same restaurant
+        guard let firstItem = cartManager.cartItems.first else {
+            alertMessage = "No items in cart. Unable to create order."
+            showingAlert = true
+            isProcessingPayment = false
+            return
+        }
+        
+        // Use the restaurantId from the cart item
+        let restaurantId = firstItem.restaurantId
+        print("DEBUG: Using restaurant ID from cart item: \(restaurantId)")
+        
+        // Proceed with order creation
+        self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
+    }
+    
+    private func completeOrderCreation(orderId: String, userId: String, restaurantId: String, status: String, paymentIntentId: String?) {
         var orderData: [String: Any] = [
             "id": orderId,
             "userId": userId,
-            "restaurantId": cartManager.cartItems.first?.menuItemId ?? "",
+            "restaurantId": restaurantId,
             "items": cartManager.cartItems.map { item in
                 var itemDict: [String: Any] = [
                     "id": item.id,
@@ -383,7 +424,7 @@ struct CheckoutView: View {
                 }
                 
                 // Convert customizations to compatible format
-                var convertedCustomizations: [String: [[String: Any]]] = [:]
+                var convertedCustomizations: [String: [Any]] = [:]
                 for (key, selections) in item.customizations {
                     convertedCustomizations[key] = selections.map { selection in
                         var selectionDict: [String: Any] = [
@@ -414,15 +455,23 @@ struct CheckoutView: View {
             "deliveryOption": deliveryOption.rawValue,
             "paymentMethod": paymentMethod.rawValue,
             "status": status,
-            "createdAt": ServerValue.timestamp()
+            "order_status": "pending",
+            "createdAt": ServerValue.timestamp(),
+            "customerId": userId
         ]
         
         if deliveryOption == DeliveryOption.delivery {
-            orderData["address"] = [
-                "street": deliveryAddress.streetAddress,
-                "unit": deliveryAddress.unit,
-                "instructions": deliveryAddress.instructions
-            ]
+            var addressData: [String: Any] = ["street": deliveryAddress.streetAddress]
+            
+            if let unit = deliveryAddress.unit, !unit.isEmpty {
+                addressData["unit"] = unit
+            }
+            
+            if let instructions = deliveryAddress.instructions, !instructions.isEmpty {
+                addressData["instructions"] = instructions
+            }
+            
+            orderData["address"] = addressData
             
             // Store latitude and longitude at the root level
             orderData["latitude"] = locationSearchVM.selectedLocation?.coordinate.latitude ?? 0
@@ -433,17 +482,37 @@ struct CheckoutView: View {
             orderData["paymentIntentId"] = paymentIntentId
         }
         
-        // Save order to Firebase with connection check
-        let orderRef = db.child("orders").child(orderId)
-        
+        // Get customer information from Firebase
+        let userRef = db.child("customers").child(userId)
+        userRef.observeSingleEvent(of: .value) { snapshot in
+            // Create a mutable copy of the order data
+            var updatedOrderData = orderData
+            
+            if let userData = snapshot.value as? [String: Any] {
+                // Add available customer information
+                if let fullName = userData["fullName"] as? String {
+                    updatedOrderData["customerName"] = fullName
+                }
+                
+                if let phone = userData["phone"] as? String {
+                    updatedOrderData["customerPhone"] = phone
+                }
+            }
+            
+            // Continue with order creation regardless of customer info
+            self.finalizeOrderCreation(orderRef: self.db.child("orders").child(orderId), orderData: updatedOrderData)
+        }
+    }
+    
+    private func finalizeOrderCreation(orderRef: DatabaseReference, orderData: [String: Any]) {
         // Check connection status
         let connectedRef = Database.database().reference(withPath: ".info/connected")
         connectedRef.observe(.value) { snapshot, _ in
             guard let connected = snapshot.value as? Bool, connected else {
                 DispatchQueue.main.async {
-                    isProcessingPayment = false
-                    alertMessage = "Error: No internet connection. Please try again."
-                    showingAlert = true
+                    self.isProcessingPayment = false
+                    self.alertMessage = "Error: No internet connection. Please try again."
+                    self.showingAlert = true
                 }
                 return
             }
@@ -451,18 +520,18 @@ struct CheckoutView: View {
             // We're connected, proceed with order creation
             orderRef.setValue(orderData) { error, _ in
                 DispatchQueue.main.async {
-                    isProcessingPayment = false
+                    self.isProcessingPayment = false
                     
                     if let error = error {
                         print("Error placing order: \(error.localizedDescription)")
-                        alertMessage = "Error placing order: \(error.localizedDescription)"
-                        showingAlert = true
+                        self.alertMessage = "Error placing order: \(error.localizedDescription)"
+                        self.showingAlert = true
                         return
                     }
                     
-                    cartManager.clearCart()
-                    alertMessage = "Order placed successfully!"
-                    showingAlert = true
+                    self.cartManager.clearCart()
+                    self.alertMessage = "Order placed successfully!"
+                    self.showingAlert = true
                 }
             }
         }

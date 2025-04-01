@@ -3,9 +3,13 @@ import FirebaseCore
 import FirebaseDatabase
 import GoogleMaps
 import GooglePlaces
+import Firebase
 
 @main
 struct Deligo_iOSApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var authViewModel = AuthViewModel()
+    
     init() {
         FirebaseApp.configure()
         
@@ -22,6 +26,7 @@ struct Deligo_iOSApp: App {
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
+                .environmentObject(authViewModel)
         }
     }
 }

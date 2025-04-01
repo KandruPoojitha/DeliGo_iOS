@@ -3,50 +3,69 @@ import FirebaseDatabase
 
 struct CustomerCartView: View {
     @ObservedObject var authViewModel: AuthViewModel
-    @ObservedObject var cartManager: CartManager
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
+    @ObservedObject private var cartManager: CartManager
+    @State private var showingClearCartAlert = false
     
     init(authViewModel: AuthViewModel) {
-        print("CustomerCartView initialized")
-        print("Current user ID: \(authViewModel.currentUserId ?? "nil")")
         self.authViewModel = authViewModel
-        self._cartManager = ObservedObject(wrappedValue: CartManager(userId: authViewModel.currentUserId ?? ""))
+        // Only initialize CartManager if userId is valid
+        if let userId = authViewModel.currentUserId, !userId.isEmpty {
+            self._cartManager = ObservedObject(wrappedValue: CartManager(userId: userId))
+        } else {
+            // Create empty CartManager for when user is not logged in
+            self._cartManager = ObservedObject(wrappedValue: CartManager(userId: ""))
+        }
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
+        // Only show content if user is authenticated
+        if authViewModel.isAuthenticated, let userId = authViewModel.currentUserId, !userId.isEmpty {
+            Group {
                 if cartManager.cartItems.isEmpty {
                     EmptyCartView()
                 } else {
-                    CartItemsListView(cartManager: cartManager, authViewModel: authViewModel)
+                    CartItemsListView(cartManager: cartManager)
+                        .environmentObject(authViewModel)
                 }
             }
-            .navigationTitle("Cart")
+            .navigationTitle("My Cart")
             .toolbar {
-                if !cartManager.cartItems.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            showingAlert = true
-                        }) {
-                            Text("Clear Cart")
-                                .foregroundColor(.red)
-                        }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingClearCartAlert = true
+                    }) {
+                        Text("Clear Cart")
+                            .foregroundColor(.red)
                     }
+                    .disabled(cartManager.cartItems.isEmpty)
                 }
             }
-            .alert("Clear Cart", isPresented: $showingAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Clear", role: .destructive) {
-                    cartManager.clearCart()
-                }
-            } message: {
-                Text("Are you sure you want to clear your cart?")
+            .alert(isPresented: $showingClearCartAlert) {
+                Alert(
+                    title: Text("Clear Cart"),
+                    message: Text("Are you sure you want to remove all items from your cart?"),
+                    primaryButton: .destructive(Text("Clear")) {
+                        cartManager.clearCart()
+                    },
+                    secondaryButton: .cancel()
+                )
             }
             .onChange(of: cartManager.cartItems) { items in
                 print("Cart items updated. Count: \(items.count)")
             }
+        } else {
+            // Show a placeholder view when user is not logged in
+            VStack {
+                Image(systemName: "cart")
+                    .font(.system(size: 70))
+                    .padding()
+                    .foregroundColor(.gray)
+                
+                Text("Please log in to view your cart")
+                    .font(.headline)
+                    .padding()
+            }
+            .navigationTitle("Cart")
         }
     }
 }
@@ -73,20 +92,18 @@ struct EmptyCartView: View {
 
 struct CartItemsListView: View {
     @ObservedObject var cartManager: CartManager
-    @ObservedObject var authViewModel: AuthViewModel
     
     var body: some View {
-        VStack {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(cartManager.cartItems) { item in
-                        CartItemRow(item: item, cartManager: cartManager)
-                    }
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(cartManager.cartItems) { item in
+                    CartItemRow(item: item, cartManager: cartManager)
+                        .padding(.horizontal)
                 }
-                .padding()
             }
+            .padding(.top)
             
-            CartTotalView(totalPrice: cartManager.totalCartPrice, cartManager: cartManager, authViewModel: authViewModel)
+            CartTotalView(totalPrice: cartManager.totalCartPrice, cartManager: cartManager)
         }
     }
 }
@@ -98,17 +115,35 @@ struct CartItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                if let imageURL = item.imageURL {
-                    AsyncImage(url: URL(string: imageURL)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.gray.opacity(0.3)
+                if let imageURL = item.imageURL, !imageURL.isEmpty {
+                    let _ = print("Loading image from URL: \(imageURL)")
+                    
+                    AsyncImage(url: URL(string: imageURL)) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 80, height: 80)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .cornerRadius(8)
+                                .clipped()
+                        case .failure:
+                            Image(systemName: "photo")
+                                .font(.system(size: 30))
+                                .foregroundColor(.gray)
+                                .frame(width: 80, height: 80)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                        @unknown default:
+                            EmptyView()
+                        }
                     }
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(8)
                 } else {
+                    let _ = print("No image URL for item: \(item.name)")
+                    
                     Image(systemName: "photo")
                         .font(.system(size: 30))
                         .foregroundColor(.gray)
@@ -228,8 +263,7 @@ struct CustomizationsView: View {
 struct CartTotalView: View {
     let totalPrice: Double
     @ObservedObject var cartManager: CartManager
-    @ObservedObject var authViewModel: AuthViewModel
-    @State private var showingCheckout = false
+    @EnvironmentObject var authViewModel: AuthViewModel
     
     var body: some View {
         VStack(spacing: 0) {

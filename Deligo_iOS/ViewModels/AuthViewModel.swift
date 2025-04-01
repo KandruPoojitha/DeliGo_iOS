@@ -208,13 +208,23 @@ class AuthViewModel: ObservableObject {
     }
     
     func logout() {
+        // First reset all user data
+        isAuthenticated = false
+        currentUserRole = nil
+        documentStatus = .notSubmitted
+        fullName = nil
+        phoneNumber = nil
+        
+        // Post a notification to indicate logout
+        print("DEBUG: User logged out, posting notification")
+        NotificationCenter.default.post(
+            name: Notification.Name("UserDidLogout"),
+            object: nil
+        )
+        
+        // Now sign out from Firebase Auth last
         do {
             try auth.signOut()
-            isAuthenticated = false
-            currentUserRole = nil
-            documentStatus = .notSubmitted
-            fullName = nil
-            phoneNumber = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -371,6 +381,49 @@ class AuthViewModel: ObservableObject {
                 
                 self.errorMessage = "Password reset link sent to your email"
             }
+        }
+    }
+    
+    // Add function to explicitly load user profile data
+    func loadUserProfile() {
+        guard let userId = currentUserId else {
+            print("Cannot load profile: No user ID found")
+            return
+        }
+        
+        print("Loading user profile for ID: \(userId)")
+        
+        // First try to get user role
+        if let role = currentUserRole {
+            // We know the role, load from the correct path
+            let rolePath = "\(role.rawValue.lowercased())s"
+            let userRef = db.child(rolePath).child(userId)
+            
+            userRef.observeSingleEvent(of: .value) { [weak self] snapshot in
+                guard let self = self, snapshot.exists() else {
+                    print("User data not found at path: \(rolePath)/\(userId)")
+                    return
+                }
+                
+                print("Found user data in \(rolePath)")
+                if let userData = snapshot.value as? [String: Any] {
+                    self.updateUserData(from: userData)
+                    
+                    // For restaurants, also check store_info
+                    if role == .restaurant {
+                        if let storeInfo = snapshot.childSnapshot(forPath: "store_info").value as? [String: Any] {
+                            DispatchQueue.main.async {
+                                self.fullName = storeInfo["name"] as? String ?? self.fullName
+                                self.phoneNumber = storeInfo["phone"] as? String ?? self.phoneNumber
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // We don't know the role, try all possible paths
+            print("User role unknown, checking all paths")
+            checkUserRoleAndRedirect(userId: userId)
         }
     }
 } 

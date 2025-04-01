@@ -123,7 +123,7 @@ struct RestaurantMenuView: View {
         .navigationTitle("Menu")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddItemSheet) {
-            AddMenuItemView(menuItems: $menuItems, authViewModel: authViewModel)
+            AddMenuItemView(menuItems: $menuItems, authViewModel: authViewModel, restaurant: restaurant)
         }
         .onAppear {
             loadMenuItems()
@@ -168,6 +168,7 @@ struct RestaurantMenuView: View {
                 
                 let item = MenuItem(
                     id: id,
+                    restaurantId: restaurant.id,
                     name: name,
                     description: description,
                     price: price,
@@ -212,6 +213,7 @@ struct RestaurantMenuView: View {
 
 struct MenuItem: Identifiable {
     let id: String
+    let restaurantId: String
     var name: String
     var description: String
     var price: Double
@@ -508,6 +510,7 @@ struct EditMenuItemView: View {
         if let index = menuItems.firstIndex(where: { $0.id == item.id }) {
             let updatedItem = MenuItem(
                 id: item.id,
+                restaurantId: item.restaurantId,
                 name: name,
                 description: description,
                 price: priceValue,
@@ -574,6 +577,7 @@ struct AddMenuItemView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var menuItems: [MenuItem]
     @ObservedObject var authViewModel: AuthViewModel
+    let restaurant: Restaurant
     @State private var name = ""
     @State private var description = ""
     @State private var price = ""
@@ -736,6 +740,7 @@ struct AddMenuItemView: View {
         let itemId = UUID().uuidString
         let newItem = MenuItem(
             id: itemId,
+            restaurantId: restaurant.id,
             name: name,
             description: description,
             price: priceValue,
@@ -933,6 +938,8 @@ struct AddOptionView: View {
             phone: "123-456-7890",
             cuisine: "Various",
             priceRange: "$$",
+            minPrice: 10,
+            maxPrice: 30,
             rating: 4.5,
             numberOfRatings: 100,
             address: "123 Test Street",

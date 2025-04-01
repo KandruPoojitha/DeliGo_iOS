@@ -23,7 +23,7 @@ struct HomeView: View {
                         DriverDocumentsView(authViewModel: authViewModel)
                     }
                 case "Admin":
-                    AdminDashboardView(authViewModel: authViewModel)
+                    AdminView(authViewModel: authViewModel)
                 default:
                     MainCustomerView(authViewModel: authViewModel)
                 }
@@ -548,13 +548,6 @@ struct BusinessHours: Codable {
     let closing: String
 }
 
-struct ChatManagementView: View {
-    var body: some View {
-        Text("Chat Management")
-            .navigationTitle("Chat Management")
-    }
-}
-
 struct CustomerHomeView: View {
     let locationManager: CustomLocationManager
     let authViewModel: AuthViewModel
@@ -565,78 +558,6 @@ struct CustomerHomeView: View {
                 .font(.title)
                 .padding()
         }
-    }
-}
-
-struct AdminDashboardView: View {
-    @ObservedObject var authViewModel: AuthViewModel
-    @State private var selectedTab: AdminTab? = nil
-    
-    enum AdminTab: Identifiable {
-        case userManagement
-        case chatManagement
-        
-        var id: Self { self }
-    }
-    var body: some View {
-        VStack(spacing: 20) {
-            // Logo
-            Image("deligo_logo") // Ensure this asset exists in your project
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .padding(.top, 30)
-            
-            // Welcome Text
-            Text("Welcome, Admin!")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text("Admin Dashboard")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-            
-            Spacer().frame(height: 20)
-            
-            // Admin Actions
-            VStack(spacing: 15) {
-                Button(action: { selectedTab = .userManagement }) {
-                    AdminMenuButton(title: "User Management")
-                }
-                
-                Button(action: { selectedTab = .chatManagement }) {
-                    AdminMenuButton(title: "Chat Management")
-                }
-            }
-            .padding(.horizontal, 20)
-            
-            Spacer()
-            
-            // Logout Button
-            Button(action: handleLogout) {
-                Text("Logout")
-                    .fontWeight(.medium)
-                    .foregroundColor(.red)
-            }
-            .padding(.bottom, 20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGray6))
-        .sheet(item: $selectedTab) { tab in
-            switch tab {
-            case .userManagement:
-                NavigationView {
-                    UserManagementView()
-                }
-            case .chatManagement:
-                NavigationView {
-                    ChatManagementView()
-                }
-            }
-        }
-    }
-    private func handleLogout() {
-        authViewModel.logout()
     }
 }
 
@@ -798,6 +719,8 @@ struct DriverDetailView: View {
     }
 }
 
-#Preview {
-    HomeView(authViewModel: AuthViewModel())
+struct HomeView_Previews: PreviewProvider {
+    static var previews: some View {
+        HomeView(authViewModel: AuthViewModel())
+    }
 } 

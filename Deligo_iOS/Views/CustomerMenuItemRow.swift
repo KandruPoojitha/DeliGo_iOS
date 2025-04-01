@@ -6,13 +6,12 @@ struct CustomerMenuItemRow: View {
     let onTap: () -> Void
     @ObservedObject var authViewModel: AuthViewModel
     @ObservedObject var favoritesManager: FavoritesManager
-    @State private var isFavorite = false
     
-    init(item: MenuItem, onTap: @escaping () -> Void, authViewModel: AuthViewModel) {
+    init(item: MenuItem, onTap: @escaping () -> Void, authViewModel: AuthViewModel, favoritesManager: FavoritesManager) {
         self.item = item
         self.onTap = onTap
         self.authViewModel = authViewModel
-        self._favoritesManager = ObservedObject(wrappedValue: FavoritesManager(userId: authViewModel.currentUserId ?? ""))
+        self.favoritesManager = favoritesManager
     }
     
     var body: some View {
@@ -65,18 +64,14 @@ struct CustomerMenuItemRow: View {
                 
                 Button(action: {
                     favoritesManager.toggleFavorite(item: item)
-                    isFavorite.toggle()
                 }) {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .foregroundColor(isFavorite ? .red : .gray)
+                    Image(systemName: favoritesManager.isFavorite(itemId: item.id) ? "heart.fill" : "heart")
+                        .foregroundColor(favoritesManager.isFavorite(itemId: item.id) ? .red : .gray)
                 }
                 .padding(.horizontal)
             }
             .padding(.vertical, 8)
             .contentShape(Rectangle())
-        }
-        .onAppear {
-            isFavorite = favoritesManager.isFavorite(itemId: item.id)
         }
     }
 } 

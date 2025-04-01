@@ -1,9 +1,13 @@
 import SwiftUI
 import FirebaseDatabase
+import Foundation
 
 struct CustomerMenuView: View {
     @State private var menuItems: [MenuItem] = []
     @State private var searchText = ""
+    @State private var openingHours: String?
+    @State private var closingHours: String?
+    @State private var isRestaurantOpen: Bool = false
     @ObservedObject var authViewModel: AuthViewModel
     let restaurant: Restaurant
     
@@ -41,12 +45,38 @@ struct CustomerMenuView: View {
                     }
                     .frame(height: 200)
                     .clipped()
+                } else {
+                    Color.gray.opacity(0.3)
+                        .frame(height: 200)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(restaurant.name)
                         .font(.title2)
                         .fontWeight(.bold)
+                    
+                    Text(restaurant.description)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 2)
+                    
+                    HStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(.red)
+                        Text(restaurant.address)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    if let opening = openingHours, let closing = closingHours {
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundColor(.gray)
+                            Text("\(opening) - \(closing)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                    }
                     
                     HStack {
                         Text(restaurant.cuisine)
@@ -56,10 +86,18 @@ struct CustomerMenuView: View {
                         Text("•")
                             .foregroundColor(.gray)
                             
-                        Text(restaurant.priceRange)
-                            .font(.subheadline)
-                            .foregroundColor(Color(hex: "F4A261"))
-                            .fontWeight(.medium)
+                        HStack(spacing: 4) {
+                            Text(restaurant.priceRange)
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: "F4A261"))
+                                .fontWeight(.medium)
+                            
+                            if restaurant.minPrice > 0 || restaurant.maxPrice > 0 {
+                                Text("$\(restaurant.minPrice)-\(restaurant.maxPrice)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
                     
                     HStack {
@@ -68,22 +106,19 @@ struct CustomerMenuView: View {
                         Text(String(format: "%.1f", restaurant.rating))
                         Text("(\(restaurant.numberOfRatings))")
                             .foregroundColor(.gray)
-                        Text("•")
+                            
                         Spacer()
+                            
+                        NavigationLink(destination: RestaurantCommentsView(restaurantId: restaurant.id)) {
+                            HStack {
+                                Image(systemName: "bubble.left.fill")
+                                Text("View Reviews")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "F4A261"))
+                        }
                     }
                     .font(.subheadline)
-                    
-                    // Distance information
-                    if let distance = restaurant.distance {
-                        HStack {
-                            Image(systemName: "location.fill")
-                                .foregroundColor(.gray)
-                            Text(formatDistance(distance))
-                                .foregroundColor(.gray)
-                        }
-                        .font(.subheadline)
-                        .padding(.top, 2)
-                    }
                 }
                 .padding()
             }
@@ -160,6 +195,7 @@ struct CustomerMenuView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadMenuItems()
+            loadStoreHours()
         }
     }
     
@@ -184,37 +220,47 @@ struct CustomerMenuView: View {
                 
                 if !isAvailable { continue } // Skip unavailable items for customers
                 
-                let options: [CustomizationOption] = customizationOptions.map { optionDict in
-                    CustomizationOption(
-                        id: optionDict["id"] as? String ?? "",
-                        name: optionDict["name"] as? String ?? "",
-                        type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
-                        required: optionDict["required"] as? Bool ?? false,
-                        options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
-                            CustomizationItem(
-                                id: itemDict["id"] as? String ?? "",
-                                name: itemDict["name"] as? String ?? "",
-                                price: itemDict["price"] as? Double ?? 0.0
-                            )
-                        },
-                        maxSelections: optionDict["maxSelections"] as? Int ?? 1
-                    )
-                }
-                
-                let item = MenuItem(
+                let menuItem = MenuItem(
                     id: id,
+                    restaurantId: restaurant.id,
                     name: name,
                     description: description,
                     price: price,
                     imageURL: imageURL,
                     category: category,
                     isAvailable: isAvailable,
-                    customizationOptions: options
+                    customizationOptions: customizationOptions.map { optionDict in
+                        CustomizationOption(
+                            id: optionDict["id"] as? String ?? UUID().uuidString,
+                            name: optionDict["name"] as? String ?? "",
+                            type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
+                            required: optionDict["required"] as? Bool ?? false,
+                            options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
+                                CustomizationItem(
+                                    id: itemDict["id"] as? String ?? UUID().uuidString,
+                                    name: itemDict["name"] as? String ?? "",
+                                    price: itemDict["price"] as? Double ?? 0.0
+                                )
+                            },
+                            maxSelections: optionDict["maxSelections"] as? Int ?? 1
+                        )
+                    }
                 )
-                items.append(item)
+                items.append(menuItem)
             }
             
             self.menuItems = items
+        }
+    }
+    
+    private func loadStoreHours() {
+        let db = Database.database().reference()
+        db.child("restaurants").child(restaurant.id).child("hours").observeSingleEvent(of: .value) { snapshot in
+            if let value = snapshot.value as? [String: Any] {
+                self.openingHours = value["opening"] as? String
+                self.closingHours = value["closing"] as? String
+                self.isRestaurantOpen = value["isOpen"] as? Bool ?? false
+            }
         }
     }
     
@@ -438,6 +484,7 @@ struct ItemDetailView: View {
         let cartItem = CartItem(
             id: UUID().uuidString,
             menuItemId: item.id,
+            restaurantId: item.restaurantId,
             name: item.name,
             description: item.description,
             price: item.price,
@@ -553,6 +600,8 @@ struct CategoryHeader: View {
             phone: "123-456-7890",
             cuisine: "Various",
             priceRange: "$$",
+            minPrice: 10,
+            maxPrice: 30,
             rating: 4.5,
             numberOfRatings: 100,
             address: "123 Test Street",

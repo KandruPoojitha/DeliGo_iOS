@@ -25,16 +25,37 @@ class FavoritesManager: ObservableObject {
                 let price = dict["price"] as? Double ?? 0.0
                 let imageURL = dict["imageURL"] as? String
                 let category = dict["category"] as? String ?? ""
+                let isAvailable = dict["isAvailable"] as? Bool ?? true
+                let customizationOptionsData = dict["customizationOptions"] as? [[String: Any]] ?? []
+                
+                // Parse customization options
+                let customizationOptions: [CustomizationOption] = customizationOptionsData.map { optionDict in
+                    CustomizationOption(
+                        id: optionDict["id"] as? String ?? "",
+                        name: optionDict["name"] as? String ?? "",
+                        type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
+                        required: optionDict["required"] as? Bool ?? false,
+                        options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
+                            CustomizationItem(
+                                id: itemDict["id"] as? String ?? "",
+                                name: itemDict["name"] as? String ?? "",
+                                price: itemDict["price"] as? Double ?? 0.0
+                            )
+                        },
+                        maxSelections: optionDict["maxSelections"] as? Int ?? 1
+                    )
+                }
                 
                 let item = MenuItem(
                     id: id,
+                    restaurantId: dict["restaurantId"] as? String ?? "",
                     name: name,
                     description: description,
                     price: price,
                     imageURL: imageURL,
                     category: category,
-                    isAvailable: true,
-                    customizationOptions: [] // We'll load these when needed
+                    isAvailable: isAvailable,
+                    customizationOptions: customizationOptions
                 )
                 items.append(item)
             }
@@ -53,6 +74,24 @@ class FavoritesManager: ObservableObject {
     }
     
     func addToFavorites(item: MenuItem) {
+        // Convert customization options to dictionary format
+        let customizationOptionsData: [[String: Any]] = item.customizationOptions.map { option in
+            [
+                "id": option.id,
+                "name": option.name,
+                "type": option.type.rawValue,
+                "required": option.required,
+                "maxSelections": option.maxSelections,
+                "options": option.options.map { item in
+                    [
+                        "id": item.id,
+                        "name": item.name,
+                        "price": item.price
+                    ]
+                }
+            ]
+        }
+        
         let favoriteData: [String: Any] = [
             "id": item.id,
             "name": item.name,
@@ -60,6 +99,8 @@ class FavoritesManager: ObservableObject {
             "price": item.price,
             "imageURL": item.imageURL as Any,
             "category": item.category,
+            "isAvailable": item.isAvailable,
+            "customizationOptions": customizationOptionsData,
             "timestamp": ServerValue.timestamp()
         ]
         
