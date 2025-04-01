@@ -807,12 +807,10 @@ struct ActiveOrderCard: View {
         database.child("restaurants").child(order.restaurantId).observeSingleEvent(of: .value) { snapshot in
             guard let data = snapshot.value as? [String: Any] else { return }
             
-            if let name = data["name"] as? String {
-                self.restaurantName = name
-            }
-            
             if let storeInfo = data["store_info"] as? [String: Any],
+               let name = storeInfo["name"] as? String,
                let address = storeInfo["address"] as? String {
+                self.restaurantName = name
                 self.restaurantAddress = address
                 
                 // Geocode the restaurant address
@@ -829,12 +827,11 @@ struct ActiveOrderCard: View {
     }
     
     private func fetchCustomerDetails() {
-        database.child("users").child(order.userId).observeSingleEvent(of: .value) { snapshot in
+        database.child("customers").child(order.userId).observeSingleEvent(of: .value) { snapshot in
             guard let data = snapshot.value as? [String: Any] else { return }
             
-            if let firstName = data["firstName"] as? String,
-               let lastName = data["lastName"] as? String {
-                self.customerName = "\(firstName) \(lastName)"
+            if let fullName = data["fullName"] as? String {
+                self.customerName = fullName
             }
         }
     }
