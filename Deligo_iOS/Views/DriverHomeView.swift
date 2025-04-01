@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseDatabase
+import CoreLocation
+import GoogleMaps
 
 struct DriverHomeView: View {
     @StateObject private var viewModel = DriverHomeViewModel()
@@ -163,126 +165,130 @@ struct DriverHomeView: View {
     
     private func loadAvailableOrders() {
         guard let userId = authViewModel.currentUserId else {
+            print("⚠️ No user ID available")
             isLoading = false
             return
         }
         
         isLoading = true
-        print("Loading orders for driver: \(userId)")
+        print("🔍 Starting to load orders for driver: \(userId)")
         
-        // Remove any existing observers
-        database.child("orders").removeAllObservers()
-        
-        // Query orders assigned to this driver
+        // First, check for pending orders that aren't assigned to any driver
         database.child("orders")
-            .queryOrdered(byChild: "driverId")
-            .queryEqual(toValue: userId)
+            .queryOrdered(byChild: "status")
+            .queryEqual(toValue: "pending")
             .observe(.value) { snapshot in
-                print("Checking orders assigned to driver: \(userId)")
-                print("Found \(snapshot.childrenCount) orders for this driver")
-                
+                print("📦 Found \(snapshot.childrenCount) pending orders")
                 var orders: [DeliveryOrder] = []
-                var foundActiveOrder = false
                 
                 for child in snapshot.children {
                     guard let orderSnapshot = child as? DataSnapshot,
                           let orderData = orderSnapshot.value as? [String: Any] else {
-                        print("Failed to get order data from snapshot")
+                        print("❌ Failed to parse pending order data")
                         continue
                     }
                     
-                    // Debug print all fields
-                    print("Order data for \(orderSnapshot.key):")
-                    print("userId: \(orderData["userId"] as? String ?? "missing")")
-                    print("restaurantId: \(orderData["restaurantId"] as? String ?? "missing")")
-                    print("restaurantName: \(orderData["restaurantName"] as? String ?? "missing")")
-                    print("subtotal: \(orderData["subtotal"] as? Double ?? -1)")
-                    print("total: \(orderData["total"] as? Double ?? -1)")
-                    print("deliveryOption: \(orderData["deliveryOption"] as? String ?? "missing")")
-                    print("paymentMethod: \(orderData["paymentMethod"] as? String ?? "missing")")
-                    print("status: \(orderData["status"] as? String ?? "missing")")
-                    
-                    guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
-                        print("Failed to create DeliveryOrder object")
+                    // Only consider orders that don't have a driver assigned
+                    if orderData["driverId"] == nil {
+                        guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                            print("❌ Failed to create DeliveryOrder object for: \(orderSnapshot.key)")
+                            continue
+                        }
+                        
+                        print("✅ Adding pending order: \(order.id)")
+                        orders.append(order)
+                    }
+                }
+                
+                // Update UI with pending orders
+                DispatchQueue.main.async {
+                    print("📱 Updating UI with \(orders.count) pending orders")
+                    self.availableOrders = orders
+                    self.isLoading = false
+                }
+            }
+        
+        // Then check for orders specifically assigned to this driver
+        database.child("orders")
+            .queryOrdered(byChild: "driverId")
+            .queryEqual(toValue: userId)
+            .observe(.value) { snapshot in
+                print("🚗 Found \(snapshot.childrenCount) orders assigned to driver")
+                
+                for child in snapshot.children {
+                    guard let orderSnapshot = child as? DataSnapshot,
+                          let orderData = orderSnapshot.value as? [String: Any] else {
+                        print("❌ Failed to parse assigned order data")
                         continue
                     }
                     
                     let status = orderData["status"] as? String ?? ""
                     let orderStatus = orderData["order_status"] as? String ?? ""
-                    print("Processing order: \(order.id)")
+                    
+                    print("📋 Processing order: \(orderSnapshot.key)")
                     print("Status: \(status), OrderStatus: \(orderStatus)")
                     
                     // If order is not delivered or cancelled
                     if status != "delivered" && status != "cancelled" {
-                        print("Order is active (not delivered/cancelled)")
+                        guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                            print("❌ Failed to create DeliveryOrder object")
+                            continue
+                        }
                         
-                        // Check both status combinations
+                        // Check if this should be the active order
                         if (status == "in_progress" && orderStatus == "assigned_driver") ||
                            (status == "assigned_driver" && orderStatus == "pending_driver_acceptance") {
-                            print("Setting as active order: \(order.id)")
-                            foundActiveOrder = true
+                            print("🎯 Setting active order: \(order.id)")
                             DispatchQueue.main.async {
                                 self.activeOrder = order
                             }
-                        } else {
-                            print("Adding to available orders: \(order.id)")
-                            orders.append(order)
                         }
-                    } else {
-                        print("Order is completed or cancelled: \(order.id)")
                     }
                 }
+            }
+        
+        // Also check for orders with order_status="assigned_driver"
+        database.child("orders")
+            .queryOrdered(byChild: "order_status")
+            .queryEqual(toValue: "assigned_driver")
+            .observe(.value) { snapshot in
+                print("🔄 Found \(snapshot.childrenCount) orders with status 'assigned_driver'")
                 
-                // Then check for pending orders that aren't assigned to any driver
-                database.child("orders")
-                    .queryOrdered(byChild: "status")
-                    .queryEqual(toValue: "pending")
-                    .observe(.value) { pendingSnapshot in
-                        print("Checking pending orders")
-                        print("Found \(pendingSnapshot.childrenCount) pending orders")
-                        
-                        for child in pendingSnapshot.children {
-                            guard let orderSnapshot = child as? DataSnapshot,
-                                  let orderData = orderSnapshot.value as? [String: Any] else {
-                                print("Failed to get pending order data from snapshot")
-                                continue
-                            }
-                            
-                            // Debug print all fields for pending orders
-                            print("Pending order data for \(orderSnapshot.key):")
-                            print("userId: \(orderData["userId"] as? String ?? "missing")")
-                            print("restaurantId: \(orderData["restaurantId"] as? String ?? "missing")")
-                            print("restaurantName: \(orderData["restaurantName"] as? String ?? "missing")")
-                            print("subtotal: \(orderData["subtotal"] as? Double ?? -1)")
-                            print("total: \(orderData["total"] as? Double ?? -1)")
-                            print("deliveryOption: \(orderData["deliveryOption"] as? String ?? "missing")")
-                            print("paymentMethod: \(orderData["paymentMethod"] as? String ?? "missing")")
-                            print("status: \(orderData["status"] as? String ?? "missing")")
-                            
-                            guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
-                                print("Failed to create DeliveryOrder object for pending order")
-                                continue
-                            }
-                            
-                            // Only add pending orders that aren't assigned to any driver
-                            if orderData["driverId"] == nil {
-                                print("Found unassigned pending order: \(order.id)")
-                                orders.append(order)
-                            } else {
-                                print("Skipping assigned pending order: \(order.id)")
-                            }
+                for child in snapshot.children {
+                    guard let orderSnapshot = child as? DataSnapshot,
+                          let orderData = orderSnapshot.value as? [String: Any] else {
+                        print("❌ Failed to parse order with assigned_driver status")
+                        continue
+                    }
+                    
+                    // Only process if this order belongs to this driver or has no driver assigned
+                    let orderDriverId = orderData["driverId"] as? String
+                    if orderDriverId == nil || orderDriverId == userId {
+                        guard let order = DeliveryOrder(id: orderSnapshot.key, data: orderData) else {
+                            print("❌ Failed to create DeliveryOrder object")
+                            continue
                         }
                         
-                        // Sort orders by creation time (newest first)
-                        orders.sort { $0.createdAt > $1.createdAt }
+                        print("✅ Found assigned order: \(order.id)")
+                        // If no driver is assigned, assign it to this driver
+                        if orderDriverId == nil {
+                            print("🔄 Assigning order to driver: \(userId)")
+                            database.child("orders").child(order.id).updateChildValues([
+                                "driverId": userId,
+                                "status": "in_progress",
+                                "order_status": "assigned_driver"
+                            ])
+                        }
                         
+                        // Update active order if not already set
                         DispatchQueue.main.async {
-                            print("Updating UI with \(orders.count) available orders")
-                            print("Active order status: \(self.activeOrder?.id ?? "none")")
-                            self.availableOrders = orders
-                            self.isLoading = false
+                            if self.activeOrder == nil {
+                                print("🎯 Setting as active order: \(order.id)")
+                                self.activeOrder = order
+                            }
                         }
                     }
+                }
             }
     }
     
@@ -697,130 +703,74 @@ struct ActiveOrderCard: View {
     let order: DeliveryOrder
     let onAccept: (String) -> Void
     let onReject: () -> Void
+    @StateObject private var locationManager = DeliveryLocationManager.shared
     @State private var showingActionSheet = false
+    @State private var restaurantName: String = "Loading..."
+    @State private var restaurantAddress: String = "Loading..."
+    @State private var customerName: String = "Loading..."
+    @State private var restaurantLocation: CLLocationCoordinate2D?
+    @State private var deliveryLocation: CLLocationCoordinate2D?
+    let database = Database.database().reference()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header
+            // Order Status Header
             HStack {
-                Text("ACTIVE ORDER")
+                Text("Order #\(order.id.prefix(8))")
                     .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.green)
-                    .cornerRadius(8)
-                
                 Spacer()
-                
                 Text("$\(String(format: "%.2f", order.total))")
                     .font(.title2)
                     .fontWeight(.bold)
             }
             
-            // Order ID and Status
+            // Map View
+            if let restaurantLoc = restaurantLocation,
+               let deliveryLoc = deliveryLocation {
+                DeliveryMapView(
+                    driverLocation: locationManager.location?.coordinate,
+                    restaurantLocation: restaurantLoc,
+                    deliveryLocation: deliveryLoc,
+                    restaurantName: restaurantName,
+                    deliveryAddress: order.address.formattedAddress
+                )
+                .frame(height: 200)
+                .cornerRadius(12)
+            } else {
+                ProgressView("Loading map...")
+                    .frame(height: 200)
+            }
+            
+            // Restaurant Details
             VStack(alignment: .leading, spacing: 4) {
-                Text("Order #\(order.id.prefix(8))")
+                Text("Restaurant")
                     .font(.headline)
-                Text("Status: \(order.status.capitalized)")
+                Text(restaurantName)
+                Text(restaurantAddress)
+                    .foregroundColor(.gray)
+            }
+            
+            // Delivery Details
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Delivery Location")
+                    .font(.headline)
+                Text(order.address.formattedAddress)
                     .foregroundColor(.gray)
             }
             
             // Customer Details
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Customer Details")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Customer")
                     .font(.headline)
-                    .padding(.bottom, 4)
-                
-                Text("Name: \(order.userId)")  // Replace with actual customer name when available
+                Text(customerName)
                 Text("Payment: \(order.paymentMethod)")
-            }
-            
-            // Restaurant Details
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Restaurant Details")
-                    .font(.headline)
-                    .padding(.bottom, 4)
-                
-                Text("ID: \(order.restaurantId)")
-                if let name = order.restaurantName {
-                    Text("Name: \(name)")
-                }
-                // Add restaurant address when available
-            }
-            
-            // Delivery Address
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Delivery Address")
-                    .font(.headline)
-                    .padding(.bottom, 4)
-                
-                Text(order.address.formattedAddress)
-                if let instructions = order.address.instructions {
-                    Text("Instructions: \(instructions)")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-            }
-            
-            // Order Items
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Order Items")
-                    .font(.headline)
-                    .padding(.bottom, 4)
-                
-                ForEach(order.items) { item in
-                    HStack {
-                        Text("\(item.quantity)x")
-                            .foregroundColor(.gray)
-                        Text(item.name)
-                        Spacer()
-                        Text("$\(String(format: "%.2f", item.totalPrice))")
-                    }
-                    if let instructions = item.specialInstructions {
-                        Text("Note: \(instructions)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(.leading)
-                    }
-                }
-            }
-            
-            // Price Breakdown
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Price Details")
-                    .font(.headline)
-                    .padding(.bottom, 4)
-                
-                HStack {
-                    Text("Subtotal")
-                    Spacer()
-                    Text("$\(String(format: "%.2f", order.subtotal))")
-                }
-                HStack {
-                    Text("Delivery Fee")
-                    Spacer()
-                    Text("$\(String(format: "%.2f", order.deliveryFee))")
-                }
-                HStack {
-                    Text("Tip")
-                    Spacer()
-                    Text("$\(String(format: "%.2f", order.tipAmount))")
-                }
-                Divider()
-                HStack {
-                    Text("Total")
-                        .fontWeight(.bold)
-                    Spacer()
-                    Text("$\(String(format: "%.2f", order.total))")
-                        .fontWeight(.bold)
-                }
+                    .foregroundColor(.gray)
             }
             
             // Action Buttons
             HStack(spacing: 16) {
                 Button(action: onReject) {
-                    Text("Reject")
+                    Text("Reject Order")
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -830,13 +780,9 @@ struct ActiveOrderCard: View {
                 }
                 
                 Button(action: {
-                    if let nextStatus = directStatusTransition {
-                        onAccept(nextStatus)
-                    } else {
-                        showingActionSheet = true
-                    }
+                    onAccept("accepted")
                 }) {
-                    Text("Accept")
+                    Text("Accept Order")
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -845,24 +791,64 @@ struct ActiveOrderCard: View {
                         .cornerRadius(12)
                 }
             }
-            .padding(.top)
         }
         .padding()
         .background(Color.white)
         .cornerRadius(16)
         .shadow(radius: 8)
+        .onAppear {
+            fetchRestaurantDetails()
+            fetchCustomerDetails()
+            geocodeAddresses()
+        }
     }
     
-    private var directStatusTransition: String? {
-        switch order.status {
-        case "assigned_driver":
-            return nil // No direct transition, needs accept/reject buttons
-        case "preparing", "ready_for_pickup":
-            return "picked_up"
-        case "picked_up":
-            return "delivered"
-        default:
-            return nil
+    private func fetchRestaurantDetails() {
+        database.child("restaurants").child(order.restaurantId).observeSingleEvent(of: .value) { snapshot in
+            guard let data = snapshot.value as? [String: Any] else { return }
+            
+            if let name = data["name"] as? String {
+                self.restaurantName = name
+            }
+            
+            if let storeInfo = data["store_info"] as? [String: Any],
+               let address = storeInfo["address"] as? String {
+                self.restaurantAddress = address
+                
+                // Geocode the restaurant address
+                let geocoder = CLGeocoder()
+                geocoder.geocodeAddressString(address) { placemarks, error in
+                    if let location = placemarks?.first?.location?.coordinate {
+                        DispatchQueue.main.async {
+                            self.restaurantLocation = location
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func fetchCustomerDetails() {
+        database.child("users").child(order.userId).observeSingleEvent(of: .value) { snapshot in
+            guard let data = snapshot.value as? [String: Any] else { return }
+            
+            if let firstName = data["firstName"] as? String,
+               let lastName = data["lastName"] as? String {
+                self.customerName = "\(firstName) \(lastName)"
+            }
+        }
+    }
+    
+    private func geocodeAddresses() {
+        let geocoder = CLGeocoder()
+        
+        // Geocode delivery address
+        geocoder.geocodeAddressString(order.address.formattedAddress) { placemarks, error in
+            if let location = placemarks?.first?.location?.coordinate {
+                DispatchQueue.main.async {
+                    self.deliveryLocation = location
+                }
+            }
         }
     }
 }
