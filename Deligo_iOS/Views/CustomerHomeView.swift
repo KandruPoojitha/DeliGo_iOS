@@ -19,6 +19,7 @@ struct Restaurant: Identifiable {
     let isOpen: Bool
     let latitude: Double
     let longitude: Double
+    let discount: Int?
     var distance: Double?
     
     var location: CLLocation? {
@@ -39,6 +40,7 @@ struct RestaurantRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
+            // Restaurant image
             if let imageURL = restaurant.imageURL {
                 AsyncImage(url: URL(string: imageURL)) { image in
                     image
@@ -58,10 +60,27 @@ struct RestaurantRow: View {
                     .cornerRadius(8)
             }
             
+            // Restaurant details
             VStack(alignment: .leading, spacing: 4) {
-                Text(restaurant.name)
-                    .font(.headline)
+                // Name and status
+                HStack {
+                    Text(restaurant.name)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    if !restaurant.isOpen {
+                        Text("Closed")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                }
                 
+                // Cuisine and price
                 HStack {
                     Text(restaurant.cuisine)
                         .font(.subheadline)
@@ -70,7 +89,6 @@ struct RestaurantRow: View {
                     Text("•")
                         .foregroundColor(.gray)
                     
-                    // Price range with actual prices
                     HStack(spacing: 4) {
                         Text(restaurant.priceRange)
                             .font(.subheadline)
@@ -85,6 +103,7 @@ struct RestaurantRow: View {
                     }
                 }
                 
+                // Rating
                 HStack {
                     Image(systemName: "star.fill")
                         .foregroundColor(.yellow)
@@ -96,33 +115,42 @@ struct RestaurantRow: View {
                         .foregroundColor(.gray)
                 }
                 
-                HStack(spacing: 2) {
-                    Image(systemName: "location.fill")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    if let distance = restaurant.distance {
-                        Text(formatDistance(distance))
+                // Distance and discount
+                HStack {
+                    // Distance
+                    HStack(spacing: 2) {
+                        Image(systemName: "location.fill")
                             .font(.caption)
                             .foregroundColor(.gray)
-                    } else {
-                        Text("Distance unavailable")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                        if let distance = restaurant.distance {
+                            Text(formatDistance(distance))
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("Distance unavailable")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     }
-                }
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                if !restaurant.isOpen {
-                    Text("Closed")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.red.opacity(0.1))
+                    
+                    Spacer()
+                    
+                    // Discount
+                    if let discount = restaurant.discount, discount > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "tag.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            Text("\(discount)% off")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.1))
                         .cornerRadius(4)
+                    }
                 }
             }
         }
@@ -130,10 +158,10 @@ struct RestaurantRow: View {
     }
     
     private func formatDistance(_ distance: Double) -> String {
-        if distance < 1000 {
-            return "\(Int(round(distance)))m"
+        if distance >= 1000 {
+            return String(format: "%.1f km", distance / 1000)
         } else {
-            return String(format: "%.1fkm", distance / 1000)
+            return "\(Int(distance)) m"
         }
     }
 }
@@ -342,7 +370,7 @@ struct MainCustomerView: View {
             var loadedRestaurants: [Restaurant] = []
             
             let children = snapshot.children.allObjects as? [DataSnapshot] ?? []
-            print("DEBUG: Found \(children.count) restaurants")
+            print("DEBUG: Found \(children.count) restaurants in snapshot")
             
             for childSnapshot in children {
                 guard let dict = childSnapshot.value as? [String: Any] else {
@@ -350,7 +378,7 @@ struct MainCustomerView: View {
                     continue
                 }
 
-                // Corrected path to check document status
+                // Check document status
                 guard let documents = dict["documents"] as? [String: Any],
                       let documentStatus = documents["status"] as? String,
                       documentStatus == "approved" else {
@@ -361,6 +389,14 @@ struct MainCustomerView: View {
                 guard let storeInfo = dict["store_info"] as? [String: Any] else {
                     print("DEBUG: Missing or invalid store_info for restaurant: \(childSnapshot.key)")
                     continue
+                }
+                
+                print("DEBUG: Processing approved restaurant: \(storeInfo["name"] ?? "unknown")")
+                
+                // Get discount value
+                let discount = dict["discount"] as? Int
+                if let discount = discount {
+                    print("DEBUG: Found discount for restaurant: \(discount)%")
                 }
                 
                 // Calculate average rating from ratingsandcomments
@@ -381,21 +417,17 @@ struct MainCustomerView: View {
                 }
                 
                 let averageRating = numberOfRatings > 0 ? totalRating / Double(numberOfRatings) : 0.0
-                print("DEBUG: Restaurant \(storeInfo["name"] ?? "") has average rating: \(averageRating) from \(numberOfRatings) ratings")
                 
-                // Get location data from the "location" node
+                // Get location data
                 var latitude: Double = 0
                 var longitude: Double = 0
                 
                 if let location = dict["location"] as? [String: Any] {
                     latitude = location["latitude"] as? Double ?? 0
                     longitude = location["longitude"] as? Double ?? 0
-                    print("DEBUG: Found location data for restaurant \(storeInfo["name"] ?? ""): lat=\(latitude), lon=\(longitude)")
-                } else {
-                    print("DEBUG: No location data found for restaurant: \(storeInfo["name"] ?? "")")
                 }
                 
-                // Get price range from store_info > price_range
+                // Get price range
                 var minPrice: Int = 0
                 var maxPrice: Int = 0
                 var priceRangeString = "$"
@@ -404,7 +436,6 @@ struct MainCustomerView: View {
                     minPrice = priceRange["min"] as? Int ?? 0
                     maxPrice = priceRange["max"] as? Int ?? 0
                     
-                    // Generate price range string based on max price
                     if maxPrice > 0 {
                         if maxPrice <= 15 {
                             priceRangeString = "$"
@@ -416,8 +447,6 @@ struct MainCustomerView: View {
                             priceRangeString = "$$$$"
                         }
                     }
-                    
-                    print("DEBUG: Price range for \(storeInfo["name"] ?? ""): $\(minPrice)-$\(maxPrice) (\(priceRangeString))")
                 }
 
                 let restaurant = Restaurant(
@@ -437,22 +466,18 @@ struct MainCustomerView: View {
                     isOpen: dict["isOpen"] as? Bool ?? false,
                     latitude: latitude,
                     longitude: longitude,
+                    discount: discount,
                     distance: nil
                 )
 
-                // Debug print restaurant location
-                if let loc = restaurant.location {
-                    print("DEBUG: Restaurant \(restaurant.name) has valid location: \(loc.coordinate.latitude), \(loc.coordinate.longitude)")
-                } else {
-                    print("DEBUG: Restaurant \(restaurant.name) has no valid location")
-                }
-
+                print("DEBUG: Adding approved restaurant to list: \(restaurant.name)")
                 loadedRestaurants.append(restaurant)
             }
             
-            print("DEBUG: Loaded \(loadedRestaurants.count) valid restaurants")
+            print("DEBUG: Loaded \(loadedRestaurants.count) approved restaurants")
             
             DispatchQueue.main.async {
+                self.restaurants = loadedRestaurants
                 self.updateDistances(for: loadedRestaurants)
             }
         }
@@ -466,22 +491,14 @@ struct MainCustomerView: View {
             print("DEBUG: User location found: \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
             for i in 0..<restaurantsWithDistance.count {
                 if let restaurantLocation = restaurantsWithDistance[i].location {
-                    print("DEBUG: Calculating distance for \(restaurantsWithDistance[i].name)")
-                    print("DEBUG: Restaurant location: \(restaurantLocation.coordinate.latitude), \(restaurantLocation.coordinate.longitude)")
-                    
-                    // Calculate distance and round to nearest meter
                     let distance = round(userLocation.distance(from: restaurantLocation))
-                    print("DEBUG: Calculated distance for \(restaurantsWithDistance[i].name): \(distance) meters")
                     restaurantsWithDistance[i].distance = distance
                 } else {
-                    print("DEBUG: No valid location for restaurant: \(restaurantsWithDistance[i].name)")
                     restaurantsWithDistance[i].distance = nil
                 }
             }
         } else {
             print("DEBUG: No user location available")
-            // Request location update if not available
-            locationManager.startUpdatingLocation()
             for i in 0..<restaurantsWithDistance.count {
                 restaurantsWithDistance[i].distance = nil
             }
@@ -490,7 +507,9 @@ struct MainCustomerView: View {
         DispatchQueue.main.async {
             print("DEBUG: Updating UI with \(restaurantsWithDistance.count) restaurants")
             self.restaurants = restaurantsWithDistance
-            self.sortRestaurants()
+            if !restaurantsWithDistance.isEmpty {
+                self.sortRestaurants()
+            }
         }
     }
     

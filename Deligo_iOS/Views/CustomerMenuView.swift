@@ -609,6 +609,7 @@ struct CategoryHeader: View {
             isOpen: true,
             latitude: 43.651070,  // Toronto coordinates for preview
             longitude: -79.347015,
+            discount: nil,  // Add discount parameter
             distance: 1500  // 1.5 km
         ),
         authViewModel: AuthViewModel()
