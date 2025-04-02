@@ -7,9 +7,12 @@ struct AdminView: View {
     @State private var totalUnreadCount: Int = 0
     @StateObject private var chatManager: ChatManager
     
-    enum AdminTab {
+    enum AdminTab: Identifiable {
         case userManagement
         case chatManagement
+        case otherActivities
+        
+        var id: Self { self }
     }
     
     init(authViewModel: AuthViewModel) {
@@ -27,7 +30,7 @@ struct AdminView: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack {
             Image("deligo_logo")
                 .resizable()
                 .scaledToFit()
@@ -53,7 +56,7 @@ struct AdminView: View {
                 
                 Button(action: { selectedTab = .chatManagement }) {
                     ZStack(alignment: .topTrailing) {
-                        AdminMenuButton(title: "Customer Support Messages")
+                        AdminMenuButton(title: "Chat Management")
                         
                         if totalUnreadCount > 0 {
                             Text("\(totalUnreadCount)")
@@ -66,16 +69,23 @@ struct AdminView: View {
                         }
                     }
                 }
+                
+                Button(action: { selectedTab = .otherActivities }) {
+                    AdminMenuButton(title: "Other Activities")
+                }
             }
             .padding(.horizontal, 20)
             
             Spacer()
             
-            // Logout Button
             Button(action: handleLogout) {
                 Text("Logout")
-                    .fontWeight(.medium)
                     .foregroundColor(.red)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 30)
+                    .background(Color.white)
+                    .cornerRadius(8)
+                    .shadow(radius: 2)
             }
             .padding(.bottom, 20)
         }
@@ -90,6 +100,10 @@ struct AdminView: View {
             case .chatManagement:
                 NavigationView {
                     ChatManagementView(authViewModel: authViewModel)
+                }
+            case .otherActivities:
+                NavigationView {
+                    OtherActivitiesView(authViewModel: authViewModel)
                 }
             }
         }
@@ -111,8 +125,76 @@ struct AdminView: View {
     }
 }
 
-extension AdminView.AdminTab: Identifiable {
-    var id: Self { self }
+struct OtherActivitiesView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var showOrderManagement = false
+    @State private var showPaymentTransactions = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // Logo
+                Image("deligo_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 60, height: 60)
+                    .padding(.top, 40)
+                
+                Text("Other Activities")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.bottom, 20)
+                
+                // Activity Buttons
+                VStack(spacing: 15) {
+                    NavigationLink(destination: AdminOrderManagementView(), isActive: $showOrderManagement) {
+                        EmptyView()
+                    }
+                    
+                    Button(action: {
+                        showOrderManagement = true
+                    }) {
+                        Text("Order Management")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(hex: "F4A261"))
+                            .cornerRadius(25)
+                    }
+                    
+                    Button(action: {
+                        showPaymentTransactions = true
+                    }) {
+                        Text("View Payment Transactions")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(hex: "F4A261"))
+                            .cornerRadius(25)
+                    }
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { dismiss() }) {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                    }
+                }
+            }
+            .background(Color(.systemGray6))
+        }
+    }
 }
 
 // Custom Admin Button UI
@@ -134,4 +216,5 @@ struct AdminMenuButton: View {
 #Preview {
     AdminView(authViewModel: AuthViewModel())
 }
+
 
