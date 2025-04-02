@@ -243,12 +243,11 @@ struct DriverHomeView: View {
                             
                             ActiveOrderCard(
                                 order: activeOrder,
-                                onAccept: { newStatus in
-                                    viewModel.updateOrderStatus(orderId: activeOrder.id, status: .accepted)
+                                onAccept: { status in
+                                    viewModel.updateOrderStatus(orderId: activeOrder.id, status: status)
                                 },
                                 onReject: {
-                                    showingAlert = true
-                                    alertMessage = "Are you sure you want to reject this order?"
+                                    showRejectionConfirmation()
                                 }
                             )
                         }
@@ -266,12 +265,16 @@ struct DriverHomeView: View {
             }
             .background(Color(.systemGray6))
             .navigationTitle("Home")
-            .alert(isPresented: $showingAlert) {
-                Alert(
-                    title: Text("Notice"),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text("OK"))
-                )
+            .alert("Reject Order", isPresented: $showingAlert) {
+                Button("Cancel", role: .cancel) {
+                    print("Alert: Cancel button tapped")
+                }
+                Button("Reject", role: .destructive) {
+                    print("Alert: Reject button tapped")
+                    handleRejection()
+                }
+            } message: {
+                Text(alertMessage)
             }
         }
         .onAppear {
@@ -303,7 +306,8 @@ struct DriverHomeView: View {
                     
                     // Check if this is an active order (not delivered or cancelled)
                     if status != "delivered" && status != "cancelled" {
-                        if status == "in_progress" && orderStatus == "assigned_driver" {
+                        // Show orders that are in progress with assigned_driver, driver_accepted, or picked_up status
+                        if (status == "in_progress" && (orderStatus == "assigned_driver" || orderStatus == "driver_accepted" || orderStatus == "picked_up")) {
                             foundActiveOrder = true
                             
                             // Set as active order
@@ -507,7 +511,7 @@ struct DriverHomeView: View {
             "driverId": userId,
             "driverName": userName,
             "status": "assigned_driver",
-            "orderStatus": "pending_driver_acceptance" // Indicates driver is assigned but hasn't accepted yet
+            "order_status": "pending_driver_acceptance" // Indicates driver is assigned but hasn't accepted yet
         ]) { error, _ in
             if let error = error {
                 print("Error accepting order: \(error.localizedDescription)")
@@ -534,21 +538,57 @@ struct DriverHomeView: View {
         
         if newStatus == "driver_accepted" {
             // When driver explicitly accepts the order
-            updates["orderStatus"] = "driver_accepted"
+            updates["order_status"] = "driver_accepted"
             updates["acceptedTime"] = ServerValue.timestamp()
             
             // After accepting, set status to ready_for_pickup so driver can mark as picked up
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 orderRef.updateChildValues([
                     "status": "ready_for_pickup",
-                    "orderStatus": "ready_for_pickup"
+                    "order_status": "ready_for_pickup"
                 ])
             }
         } else if newStatus == "picked_up" {
-            updates["orderStatus"] = "on_the_way"
+            updates["status"] = "in_progress"
+            updates["order_status"] = "picked_up"
             updates["pickedUpTime"] = ServerValue.timestamp()
+            
+            // Get order details to send notification
+            orderRef.observeSingleEvent(of: .value) { snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Picked Up!",
+                        body: "Your order from \(restaurantName) has been picked up and is on its way to you.",
+                        data: [
+                            "orderId": order.id,
+                            "status": "in_progress",
+                            "orderStatus": "picked_up",
+                            "type": "order_picked_up"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": order.id,
+                                "newStatus": "in_progress",
+                                "newOrderStatus": "picked_up"
+                            ]
+                        )
+                    }
+                }
+            }
         } else if newStatus == "delivered" {
-            updates["orderStatus"] = "completed"
+            updates["status"] = "delivered"
+            updates["order_status"] = "delivered"
             updates["deliveredTime"] = ServerValue.timestamp()
             
             // Also clear the driver's currentOrderId when order is delivered
@@ -562,16 +602,26 @@ struct DriverHomeView: View {
         orderRef.updateChildValues(updates) { error, _ in
             if let error = error {
                 print("Error updating order status: \(error.localizedDescription)")
+            } else {
+                print("Successfully updated order status to: \(newStatus)")
             }
         }
     }
     
-    private func rejectOrder(_ order: DeliveryOrder) {
-        // Implement reject logic
-        // You might want to show a confirmation alert before rejecting
-        showingAlert = true
+    private func showRejectionConfirmation() {
+        print("Showing rejection confirmation alert")
         alertMessage = "Are you sure you want to reject this order?"
-        // Add actual rejection logic here
+        showingAlert = true
+    }
+    
+    private func handleRejection() {
+        print("handleRejection called")
+        if let orderId = activeOrder?.id {
+            print("Rejecting order: \(orderId)")
+            viewModel.rejectOrder(orderId: orderId)
+        } else {
+            print("No active order found to reject")
+        }
     }
 }
 
@@ -735,7 +785,7 @@ struct DriverOrderCard: View {
 // Active order card - displays order that driver is currently working on
 struct ActiveOrderCard: View {
     let order: DeliveryOrder
-    let onAccept: (String) -> Void
+    let onAccept: (OrderStatus) -> Void
     let onReject: () -> Void
     @StateObject private var locationManager = DeliveryLocationManager.shared
     @State private var showingActionSheet = false
@@ -803,26 +853,55 @@ struct ActiveOrderCard: View {
             
             // Action Buttons
             HStack(spacing: 16) {
-                Button(action: onReject) {
-                    Text("Reject Order")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
-                        .cornerRadius(12)
-                }
-                
-                Button(action: {
-                    onAccept("accepted")
-                }) {
-                    Text("Accept Order")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .cornerRadius(12)
+                if order.orderStatus == "assigned_driver" {
+                    // Show Accept/Reject buttons for newly assigned orders
+                    Button(action: onReject) {
+                        Text("Reject Order")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .cornerRadius(12)
+                    }
+                    
+                    Button(action: {
+                        onAccept(.accepted)
+                    }) {
+                        Text("Accept Order")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .cornerRadius(12)
+                    }
+                } else if order.orderStatus == "driver_accepted" {
+                    // Show Mark as Picked Up button for accepted orders
+                    Button(action: {
+                        onAccept(.pickedUp)
+                    }) {
+                        Text("Mark as Picked Up")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.orange)
+                            .cornerRadius(12)
+                    }
+                } else if order.orderStatus == "picked_up" {
+                    // Show Mark as Delivered button for picked up orders
+                    Button(action: {
+                        onAccept(.delivered)
+                    }) {
+                        Text("Mark as Delivered")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .cornerRadius(12)
+                    }
                 }
             }
         }

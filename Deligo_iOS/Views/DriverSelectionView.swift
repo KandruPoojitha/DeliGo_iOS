@@ -161,10 +161,10 @@ struct DriverSelectionView: View {
         let database = Database.database().reference()
         let orderRef = database.child("orders").child(orderId)
         
-        // Update order with driver ID
+        // Update order with driver ID and correct status values
         orderRef.updateChildValues([
             "driverId": driverId,
-            "status": "assigned_driver",
+            "status": "in_progress",
             "order_status": "assigned_driver",
             "updatedAt": ServerValue.timestamp()
         ]) { error, _ in
@@ -176,9 +176,10 @@ struct DriverSelectionView: View {
                 return
             }
             
-            // Update driver with current order ID
+            // Update driver with current order ID and set availability to false
             database.child("drivers").child(driverId).updateChildValues([
-                "currentOrderId": orderId
+                "currentOrderId": orderId,
+                "isAvailable": false
             ]) { error, _ in
                 DispatchQueue.main.async {
                     self.isLoading = false
