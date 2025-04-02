@@ -187,6 +187,16 @@ struct RestaurantAccountView: View {
                     }
                 }
                 
+                Section(header: Text("Promotions")) {
+                    NavigationLink(destination: SpecialDiscountsView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "tag.fill")
+                            Text("Special Discounts")
+                            Spacer()
+                        }
+                    }
+                }
+                
                 Section(header: Text("Admin Support")) {
                     NavigationLink(destination: RestaurantChatView(
                         orderId: "admin_support", 
