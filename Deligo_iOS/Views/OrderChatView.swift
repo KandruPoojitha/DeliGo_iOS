@@ -78,7 +78,7 @@ struct OrderChatView: View {
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : Color(hexString: "F4A261"))
+                        .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : Color(hex: "F4A261"))
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .padding(.leading, 8)

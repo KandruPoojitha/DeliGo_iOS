@@ -13,7 +13,7 @@ struct MessageBubble: View {
             VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
                 Text(message.message)
                     .padding(12)
-                    .background(isFromCurrentUser ? Color(hexString: "F4A261") : Color(.systemGray5))
+                    .background(isFromCurrentUser ? Color(hex: "F4A261") : Color(.systemGray5))
                     .foregroundColor(isFromCurrentUser ? .white : .primary)
                     .cornerRadius(16)
                 

@@ -82,21 +82,17 @@ struct RestaurantHomeView: View {
                         .padding(.horizontal)
                     
                     Button(action: {
-                        // Reset document status to notSubmitted
-                        if let userId = authViewModel.currentUserId {
-                            database.child("restaurants").child(userId).child("documents").updateChildValues([
-                                "status": "notSubmitted"
-                            ])
-                        }
+                        authViewModel.documentStatus = .notSubmitted
                     }) {
                         Text("Submit Again")
                             .fontWeight(.medium)
                             .foregroundColor(.white)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 24)
+                            .frame(maxWidth: .infinity)
+                            .padding()
                             .background(Color(hex: "F4A261"))
-                            .cornerRadius(8)
+                            .cornerRadius(10)
                     }
+                    .padding(.horizontal)
                 }
                 .padding()
             }

@@ -32,7 +32,7 @@ struct CustomerChatView: View {
                 
                 Spacer()
             }
-            .background(Color(hexString: "F4A261").opacity(0.2))
+            .background(Color(hex: "F4A261").opacity(0.2))
             
             // Messages list
             ScrollViewReader { scrollView in
@@ -64,7 +64,7 @@ struct CustomerChatView: View {
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
-                        .foregroundColor(Color(hexString: "F4A261"))
+                        .foregroundColor(Color(hex: "F4A261"))
                         .padding(10)
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
