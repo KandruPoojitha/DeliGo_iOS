@@ -175,19 +175,21 @@ struct DriverHomeView: View {
     @State private var todaysDeliveries = 0
     @State private var todaysEarnings = 0.0
     @State private var showingActionSheet = false
+    @State private var driverRating: Double?
+    @State private var rejectedOrdersCount: Int?
     let database = Database.database().reference()
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     // Driver Status Section
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Driver Status")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                            .font(.headline)
                         
                         Text("You are currently online")
+                            .font(.subheadline)
                             .foregroundColor(.gray)
                         
                         Toggle("Available for Orders", isOn: $viewModel.isAvailable)
@@ -196,50 +198,96 @@ struct DriverHomeView: View {
                                 viewModel.updateDriverAvailability(newValue)
                             }
                     }
-                    .padding()
+                    .padding(12)
                     .background(Color.white)
                     .cornerRadius(12)
-                    .shadow(radius: 4)
+                    .shadow(radius: 2)
                     
-                    // Today's Stats Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Today's Stats")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        HStack(spacing: 40) {
-                            VStack {
-                                Text("\(todaysDeliveries)")
-                                    .font(.title)
-                                    .fontWeight(.bold)
-                                Text("Deliveries")
-                                    .foregroundColor(.gray)
-                            }
+                    // Performance and Stats Sections in HStack
+                    HStack(spacing: 12) {
+                        // Performance Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Performance")
+                                .font(.headline)
                             
-                            VStack {
-                                Text("$\(String(format: "%.2f", todaysEarnings))")
-                                    .font(.title)
-                                    .fontWeight(.bold)
-                                Text("Earnings")
-                                    .foregroundColor(.gray)
+                            HStack(spacing: 16) {
+                                if let rating = driverRating {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "star.fill")
+                                                .foregroundColor(.yellow)
+                                                .font(.subheadline)
+                                            Text(String(format: "%.1f", rating))
+                                                .font(.headline)
+                                        }
+                                        Text("Rating")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                
+                                if let rejected = rejectedOrdersCount {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.red)
+                                                .font(.subheadline)
+                                            Text("\(rejected)")
+                                                .font(.headline)
+                                        }
+                                        Text("Rejected")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
                             }
                         }
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .shadow(radius: 2)
+                        
+                        // Today's Stats Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Today's Stats")
+                                .font(.headline)
+                            
+                            HStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(todaysDeliveries)")
+                                        .font(.headline)
+                                    Text("Deliveries")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("$\(String(format: "%.2f", todaysEarnings))")
+                                        .font(.headline)
+                                    Text("Earnings")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .shadow(radius: 2)
                     }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(12)
-                    .shadow(radius: 4)
                     
                     // All Orders Section
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("All Orders")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                            .font(.headline)
+                            .padding(.horizontal)
                         
                         if let activeOrder = activeOrder {
                             Text("Your Current Order")
-                                .font(.headline)
-                                .padding(.top)
+                                .font(.subheadline)
+                                .padding(.horizontal)
                             
                             ActiveOrderCard(
                                 order: activeOrder,
@@ -259,9 +307,8 @@ struct DriverHomeView: View {
                                 .padding()
                         }
                     }
-                    .padding()
                 }
-                .padding()
+                .padding(.horizontal)
             }
             .background(Color(.systemGray6))
             .navigationTitle("Home")
@@ -281,6 +328,7 @@ struct DriverHomeView: View {
             setupActiveOrderListener()
             loadAvailableOrders()
             loadTodaysStats()
+            loadDriverPerformance()
         }
     }
     
@@ -497,6 +545,44 @@ struct DriverHomeView: View {
                     self.todaysEarnings = earnings
                 }
             }
+    }
+    
+    private func loadDriverPerformance() {
+        guard let userId = authViewModel.currentUserId else { return }
+        let db = Database.database().reference()
+        
+        // Load ratings
+        db.child("drivers").child(userId).child("ratingsandcomments").child("rating").observeSingleEvent(of: .value) { snapshot in
+            if let ratings = snapshot.value as? [String: Int] {
+                // Calculate average rating
+                var totalRating = 0
+                for (_, rating) in ratings {
+                    totalRating += rating
+                }
+                let averageRating = Double(totalRating) / Double(ratings.count)
+                
+                DispatchQueue.main.async {
+                    self.driverRating = averageRating
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.driverRating = 0.0
+                }
+            }
+        }
+        
+        // Load rejected orders count
+        db.child("drivers").child(userId).child("rejectedOrdersCount").observeSingleEvent(of: .value) { snapshot in
+            if let count = snapshot.value as? Int {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = count
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = 0
+                }
+            }
+        }
     }
     
     private func acceptOrder(_ order: DeliveryOrder) {
