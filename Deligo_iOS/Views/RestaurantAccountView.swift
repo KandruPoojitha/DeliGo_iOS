@@ -185,6 +185,14 @@ struct RestaurantAccountView: View {
                             Spacer()
                         }
                     }
+                    
+                    NavigationLink(destination: BestSellingDishesView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "star.circle.fill")
+                            Text("Best Selling Dishes")
+                            Spacer()
+                        }
+                    }
                 }
                 
                 Section(header: Text("Promotions")) {
