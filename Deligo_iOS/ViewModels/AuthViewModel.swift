@@ -140,12 +140,21 @@ class AuthViewModel: ObservableObject {
                 print("Found driver user")
                 if let userData = snapshot.value as? [String: Any] {
                     self.updateUserData(from: userData)
+                    
+                    // Check if the driver is blocked
+                    if let isBlocked = userData["blocked"] as? Bool, isBlocked {
+                        print("Driver is blocked and cannot log in: \(userId)")
+                        DispatchQueue.main.async {
+                            self.isLoading = false
+                            self.errorMessage = "Your account has been blocked. Please contact support for assistance."
+                            // Log the user out since they're blocked
+                            self.logout()
+                        }
+                        return
+                    }
                 }
-                let documentsSubmitted = snapshot.childSnapshot(forPath: "documentsSubmitted").value as? Bool ?? false
-                
                 DispatchQueue.main.async {
                     self.currentUserRole = .driver
-                    self.documentStatus = documentsSubmitted ? .approved : .notSubmitted
                     self.isAuthenticated = true
                     self.isLoading = false
                 }
@@ -165,6 +174,18 @@ class AuthViewModel: ObservableObject {
                 print("Found restaurant user")
                 if let userData = snapshot.value as? [String: Any] {
                     self.updateUserData(from: userData)
+                    
+                    // Check if the restaurant is blocked
+                    if let isBlocked = userData["blocked"] as? Bool, isBlocked {
+                        print("Restaurant is blocked and cannot log in: \(userId)")
+                        DispatchQueue.main.async {
+                            self.isLoading = false
+                            self.errorMessage = "Your account has been blocked. Please contact support for assistance."
+                            // Log the user out since they're blocked
+                            self.logout()
+                        }
+                        return
+                    }
                 }
                 if let documentsData = snapshot.childSnapshot(forPath: "documents").value as? [String: Any],
                    let status = documentsData["status"] as? String {

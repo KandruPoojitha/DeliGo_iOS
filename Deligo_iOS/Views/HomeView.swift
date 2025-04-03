@@ -294,31 +294,29 @@ struct UserCard: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.vertical, 4)
             
-            // Add block/unblock button for customers
-            if user.role == .customer {
-                Divider()
-                
-                Button(action: {
-                    toggleUserBlock()
-                }) {
-                    HStack {
-                        Image(systemName: user.blocked ? "lock.open.fill" : "lock.fill")
-                        Text(user.blocked ? "Unblock User" : "Block User")
-                        
-                        if isUpdating {
-                            Spacer()
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        }
+            // Add block/unblock button for all users
+            Divider()
+            
+            Button(action: {
+                toggleUserBlock()
+            }) {
+                HStack {
+                    Image(systemName: user.blocked ? "lock.open.fill" : "lock.fill")
+                    Text(user.blocked ? "Unblock User" : "Block User")
+                    
+                    if isUpdating {
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(0.7)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(user.blocked ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
                 }
-                .disabled(isUpdating)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(user.blocked ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+                .foregroundColor(.white)
+                .cornerRadius(8)
             }
+            .disabled(isUpdating)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)

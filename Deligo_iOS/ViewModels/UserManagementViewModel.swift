@@ -127,27 +127,64 @@ class UserManagementViewModel: ObservableObject {
     func toggleUserBlock(userId: String, userRole: UserRole, currentBlocked: Bool, completion: @escaping (Error?) -> Void) {
         let rolePath = "\(userRole.rawValue.lowercased())s"
         let newBlockedStatus = !currentBlocked
-        let updates = [
-            "blocked": newBlockedStatus
-        ]
         
-        db.child(rolePath).child(userId).updateChildValues(updates) { [weak self] error, _ in
+        print("DEBUG: 🔒 Toggling block status for \(userRole.rawValue) user: \(userId)")
+        print("DEBUG: Current status: \(currentBlocked), New status: \(newBlockedStatus)")
+        
+        // First verify the user exists
+        db.child(rolePath).child(userId).observeSingleEvent(of: .value) { [weak self] snapshot in
             guard let self = self else { return }
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(error)
-                } else {
-                    // Update the local users array immediately
-                    if let index = self.users.firstIndex(where: { $0.id == userId }) {
-                        self.users[index].blocked = newBlockedStatus
+            
+            if !snapshot.exists() {
+                let error = NSError(domain: "", code: -1, 
+                                  userInfo: [NSLocalizedDescriptionKey: "User not found"])
+                completion(error)
+                return
+            }
+            
+            // Prepare updates
+            let updates = [
+                "blocked": newBlockedStatus,
+                "updatedAt": ServerValue.timestamp()
+            ] as [String : Any]
+            
+            // Update the user's blocked status
+            db.child(rolePath).child(userId).updateChildValues(updates) { error, _ in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("DEBUG: ❌ Error updating block status: \(error.localizedDescription)")
+                        completion(error)
+                    } else {
+                        print("DEBUG: ✅ Successfully updated block status")
                         
-                        // Force a UI refresh by posting a notification
-                        NotificationCenter.default.post(
-                            name: Notification.Name("UserModelUpdated"),
-                            object: nil
-                        )
+                        // Update the local users array
+                        if let index = self.users.firstIndex(where: { $0.id == userId }) {
+                            self.users[index].blocked = newBlockedStatus
+                            
+                            // Post notifications for UI updates
+                            NotificationCenter.default.post(
+                                name: Notification.Name("UserBlockStatusChanged"),
+                                object: nil,
+                                userInfo: [
+                                    "userId": userId,
+                                    "isBlocked": newBlockedStatus,
+                                    "userRole": userRole.rawValue
+                                ]
+                            )
+                            
+                            NotificationCenter.default.post(
+                                name: Notification.Name("UserModelUpdated"),
+                                object: nil
+                            )
+                        }
+                        
+                        // If blocking a restaurant, update their isOpen status to false
+                        if userRole == .restaurant && newBlockedStatus {
+                            self.db.child(rolePath).child(userId).updateChildValues(["isOpen": false])
+                        }
+                        
+                        completion(nil)
                     }
-                    completion(nil)
                 }
             }
         }
