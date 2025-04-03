@@ -65,6 +65,24 @@ struct CustomerAccountView: View {
                         NavigationLink(destination: FAQView()) {
                             Label("FAQ", systemImage: "questionmark.circle")
                         }
+                        
+                        Button(action: {
+                            let appURL = "https://apps.apple.com/app/deligo" // Replace with your actual App Store URL
+                            let text = "Check out DeliGo - Your favorite food delivery app! Download it here: \(appURL)"
+                            let activityVC = UIActivityViewController(
+                                activityItems: [text],
+                                applicationActivities: nil
+                            )
+                            
+                            // Present the share sheet
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                               let window = windowScene.windows.first,
+                               let rootVC = window.rootViewController {
+                                rootVC.present(activityVC, animated: true)
+                            }
+                        }) {
+                            Label("Refer to Friends", systemImage: "square.and.arrow.up")
+                        }
                     }
                     
                     // Logout Button
