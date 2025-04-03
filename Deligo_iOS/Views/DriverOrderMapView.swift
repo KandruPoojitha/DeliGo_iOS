@@ -81,29 +81,63 @@ struct DriverOrderMapView: View {
     }
     
     private func setupMap() {
-        // Calculate bounds that include all three locations
-        let bounds = GMSCoordinateBounds(
-            coordinate: CLLocationCoordinate2D(
-                latitude: min(
-                    locationManager.location?.coordinate.latitude ?? 0,
-                    min(order.restaurantLocation?.latitude ?? 0, order.deliveryLocation?.latitude ?? 0)
-                ),
-                longitude: min(
-                    locationManager.location?.coordinate.longitude ?? 0,
-                    min(order.restaurantLocation?.longitude ?? 0, order.deliveryLocation?.longitude ?? 0)
-                )
-            ),
-            coordinate: CLLocationCoordinate2D(
-                latitude: max(
-                    locationManager.location?.coordinate.latitude ?? 0,
-                    max(order.restaurantLocation?.latitude ?? 0, order.deliveryLocation?.latitude ?? 0)
-                ),
-                longitude: max(
-                    locationManager.location?.coordinate.longitude ?? 0,
-                    max(order.restaurantLocation?.longitude ?? 0, order.deliveryLocation?.longitude ?? 0)
-                )
+        // Calculate bounds that include locations based on order status
+        let bounds: GMSCoordinateBounds
+        
+        if order.orderStatus == "driver_accepted" {
+            // Only include driver and restaurant locations if order status is "driver_accepted"
+            if let driverLoc = locationManager.location?.coordinate, let restaurantLoc = order.restaurantLocation {
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: restaurantLoc)
+            } else if let restaurantLoc = order.restaurantLocation {
+                // Fallback if driver location isn't available
+                bounds = GMSCoordinateBounds(coordinate: restaurantLoc, coordinate: restaurantLoc)
+            } else if let driverLoc = locationManager.location?.coordinate {
+                // Fallback if restaurant location isn't available
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: driverLoc)
+            } else {
+                // Default to a standard location if no coordinates are available
+                let defaultLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+                bounds = GMSCoordinateBounds(coordinate: defaultLocation, coordinate: defaultLocation)
+            }
+        } else if order.orderStatus == "picked_up" {
+            // Focus on driver and delivery location when order is picked up
+            if let driverLoc = locationManager.location?.coordinate, let deliveryLoc = order.deliveryLocation {
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: deliveryLoc)
+            } else if let deliveryLoc = order.deliveryLocation {
+                // Fallback if driver location isn't available
+                bounds = GMSCoordinateBounds(coordinate: deliveryLoc, coordinate: deliveryLoc)
+            } else if let driverLoc = locationManager.location?.coordinate {
+                // Fallback if delivery location isn't available
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: driverLoc)
+            } else {
+                // Default to a standard location if no coordinates are available
+                let defaultLocation = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+                bounds = GMSCoordinateBounds(coordinate: defaultLocation, coordinate: defaultLocation)
+            }
+        } else {
+            // Include all three locations for other order statuses
+            let minLat = min(
+                locationManager.location?.coordinate.latitude ?? 0,
+                min(order.restaurantLocation?.latitude ?? 0, order.deliveryLocation?.latitude ?? 0)
             )
-        )
+            let minLong = min(
+                locationManager.location?.coordinate.longitude ?? 0,
+                min(order.restaurantLocation?.longitude ?? 0, order.deliveryLocation?.longitude ?? 0)
+            )
+            let maxLat = max(
+                locationManager.location?.coordinate.latitude ?? 0,
+                max(order.restaurantLocation?.latitude ?? 0, order.deliveryLocation?.latitude ?? 0)
+            )
+            let maxLong = max(
+                locationManager.location?.coordinate.longitude ?? 0,
+                max(order.restaurantLocation?.longitude ?? 0, order.deliveryLocation?.longitude ?? 0)
+            )
+            
+            bounds = GMSCoordinateBounds(
+                coordinate: CLLocationCoordinate2D(latitude: minLat, longitude: minLong),
+                coordinate: CLLocationCoordinate2D(latitude: maxLat, longitude: maxLong)
+            )
+        }
         
         // Calculate appropriate zoom level based on distance
         let span = max(
@@ -142,6 +176,10 @@ struct GoogleMapView: UIViewRepresentable {
     
     func updateUIView(_ mapView: GMSMapView, context: Context) {
         mapView.animate(to: camera)
+        
+        // Clear and re-add markers to ensure they're updated
+        mapView.clear()
+        addMarkers(to: mapView)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -157,22 +195,83 @@ struct GoogleMapView: UIViewRepresentable {
             driverMarker.map = mapView
         }
         
-        // Add restaurant marker
-        if let restaurantLocation = order.restaurantLocation {
-            let restaurantMarker = GMSMarker(position: restaurantLocation)
-            restaurantMarker.title = "Restaurant"
-            restaurantMarker.snippet = order.restaurantName
-            restaurantMarker.icon = GMSMarker.markerImage(with: .orange)
-            restaurantMarker.map = mapView
+        // Add restaurant marker if not in picked_up status
+        if order.orderStatus != "picked_up" {
+            if let restaurantLocation = order.restaurantLocation {
+                let restaurantMarker = GMSMarker(position: restaurantLocation)
+                restaurantMarker.title = "Restaurant"
+                restaurantMarker.snippet = order.restaurantName
+                restaurantMarker.icon = GMSMarker.markerImage(with: .orange)
+                restaurantMarker.map = mapView
+            }
         }
         
-        // Add delivery location marker
-        if let deliveryLocation = order.deliveryLocation {
-            let deliveryMarker = GMSMarker(position: deliveryLocation)
-            deliveryMarker.title = "Delivery Location"
-            deliveryMarker.snippet = order.address.streetAddress
-            deliveryMarker.icon = GMSMarker.markerImage(with: .green)
-            deliveryMarker.map = mapView
+        // Only add delivery location marker if order status is NOT "driver_accepted"
+        // Always show delivery marker when status is picked_up
+        if order.orderStatus != "driver_accepted" || order.orderStatus == "picked_up" {
+            if let deliveryLocation = order.deliveryLocation {
+                let deliveryMarker = GMSMarker(position: deliveryLocation)
+                deliveryMarker.title = "Delivery Location"
+                deliveryMarker.snippet = order.address.streetAddress
+                deliveryMarker.icon = GMSMarker.markerImage(with: .green)
+                deliveryMarker.map = mapView
+            }
+        }
+        
+        // Draw path between points
+        drawPath(on: mapView)
+    }
+    
+    private func drawPath(on mapView: GMSMapView) {
+        let path = GMSMutablePath()
+        
+        // Handle different path drawing based on order status
+        if order.orderStatus == "driver_accepted" {
+            // Path from driver to restaurant
+            if let driverLocation = driverLocation, let restaurantLocation = order.restaurantLocation {
+                path.add(driverLocation)
+                path.add(restaurantLocation)
+                
+                // Create and style the polyline
+                let polyline = GMSPolyline(path: path)
+                polyline.strokeWidth = 3.0
+                polyline.strokeColor = .systemBlue
+                polyline.geodesic = true
+                polyline.map = mapView
+            }
+        } else if order.orderStatus == "picked_up" {
+            // Path from driver to delivery location
+            if let driverLocation = driverLocation, let deliveryLocation = order.deliveryLocation {
+                path.add(driverLocation)
+                path.add(deliveryLocation)
+                
+                // Create and style the polyline
+                let polyline = GMSPolyline(path: path)
+                polyline.strokeWidth = 3.0
+                polyline.strokeColor = .systemBlue
+                polyline.geodesic = true
+                polyline.map = mapView
+            }
+        } else {
+            // Default path through all points
+            if let driverLocation = driverLocation {
+                path.add(driverLocation)
+            }
+            
+            if let restaurantLocation = order.restaurantLocation {
+                path.add(restaurantLocation)
+                
+                if let deliveryLocation = order.deliveryLocation {
+                    path.add(deliveryLocation)
+                }
+                
+                // Create and style the polyline
+                let polyline = GMSPolyline(path: path)
+                polyline.strokeWidth = 3.0
+                polyline.strokeColor = .systemBlue
+                polyline.geodesic = true
+                polyline.map = mapView
+            }
         }
     }
     

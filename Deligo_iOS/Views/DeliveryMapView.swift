@@ -8,6 +8,7 @@ struct DeliveryMapView: UIViewRepresentable {
     let deliveryLocation: CLLocationCoordinate2D
     let restaurantName: String
     let deliveryAddress: String
+    var orderStatus: String = "" // Added parameter to track order status
     
     func makeUIView(context: Context) -> GMSMapView {
         // Create a map centered on the restaurant location initially
@@ -45,24 +46,50 @@ struct DeliveryMapView: UIViewRepresentable {
             driverMarker.map = mapView
         }
         
-        // Add restaurant marker (red)
-        let restaurantMarker = GMSMarker(position: restaurantLocation)
-        restaurantMarker.title = restaurantName
-        restaurantMarker.snippet = "Restaurant"
-        restaurantMarker.icon = GMSMarker.markerImage(with: .red)
-        restaurantMarker.map = mapView
+        // Add restaurant marker (red) if status is NOT picked_up
+        if orderStatus != "picked_up" {
+            let restaurantMarker = GMSMarker(position: restaurantLocation)
+            restaurantMarker.title = restaurantName
+            restaurantMarker.snippet = "Restaurant"
+            restaurantMarker.icon = GMSMarker.markerImage(with: .red)
+            restaurantMarker.map = mapView
+        }
         
-        // Add delivery marker (green)
-        let deliveryMarker = GMSMarker(position: deliveryLocation)
-        deliveryMarker.title = "Delivery Location"
-        deliveryMarker.snippet = deliveryAddress
-        deliveryMarker.icon = GMSMarker.markerImage(with: .green)
-        deliveryMarker.map = mapView
+        // Only add delivery location marker if order status is NOT driver_accepted
+        // Always show delivery marker when status is picked_up
+        if orderStatus != "driver_accepted" || orderStatus == "picked_up" {
+            let deliveryMarker = GMSMarker(position: deliveryLocation)
+            deliveryMarker.title = "Delivery Location"
+            deliveryMarker.snippet = deliveryAddress
+            deliveryMarker.icon = GMSMarker.markerImage(with: .green)
+            deliveryMarker.map = mapView
+        }
         
-        // Create bounds that include all markers
-        let bounds = GMSCoordinateBounds(coordinate: restaurantLocation, coordinate: deliveryLocation)
-        if let driverLoc = driverLocation {
-            bounds.includingCoordinate(driverLoc)
+        // Create bounds based on order status
+        var bounds: GMSCoordinateBounds
+        
+        if orderStatus == "driver_accepted" {
+            // Only include driver and restaurant
+            if let driverLoc = driverLocation {
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: restaurantLocation)
+            } else {
+                // Fallback if driver location is not available
+                bounds = GMSCoordinateBounds(coordinate: restaurantLocation, coordinate: restaurantLocation)
+            }
+        } else if orderStatus == "picked_up" {
+            // Focus on driver and delivery location
+            if let driverLoc = driverLocation {
+                bounds = GMSCoordinateBounds(coordinate: driverLoc, coordinate: deliveryLocation)
+            } else {
+                // Fallback if driver location is not available
+                bounds = GMSCoordinateBounds(coordinate: deliveryLocation, coordinate: deliveryLocation)
+            }
+        } else {
+            // Include all three points
+            bounds = GMSCoordinateBounds(coordinate: restaurantLocation, coordinate: deliveryLocation)
+            if let driverLoc = driverLocation {
+                bounds = bounds.includingCoordinate(driverLoc)
+            }
         }
         
         // Add some padding around the bounds
@@ -76,14 +103,27 @@ struct DeliveryMapView: UIViewRepresentable {
     private func drawRoute(on mapView: GMSMapView) {
         let path = GMSMutablePath()
         
-        // Add driver location to path if available
-        if let driverLoc = driverLocation {
-            path.add(driverLoc)
+        // Handle different path drawing based on order status
+        if orderStatus == "driver_accepted" {
+            // Path from driver to restaurant
+            if let driverLoc = driverLocation {
+                path.add(driverLoc)
+                path.add(restaurantLocation)
+            }
+        } else if orderStatus == "picked_up" {
+            // Path from driver to delivery location
+            if let driverLoc = driverLocation {
+                path.add(driverLoc)
+                path.add(deliveryLocation)
+            }
+        } else {
+            // Default path through all points
+            if let driverLoc = driverLocation {
+                path.add(driverLoc)
+            }
+            path.add(restaurantLocation)
+            path.add(deliveryLocation)
         }
-        
-        // Add restaurant and delivery locations
-        path.add(restaurantLocation)
-        path.add(deliveryLocation)
         
         // Create and style the polyline
         let polyline = GMSPolyline(path: path)

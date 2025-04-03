@@ -902,7 +902,8 @@ struct ActiveOrderCard: View {
                     restaurantLocation: restaurantLoc,
                     deliveryLocation: deliveryLoc,
                     restaurantName: restaurantName,
-                    deliveryAddress: order.address.formattedAddress
+                    deliveryAddress: order.address.formattedAddress,
+                    orderStatus: order.orderStatus
                 )
                 .frame(height: 200)
                 .cornerRadius(12)
