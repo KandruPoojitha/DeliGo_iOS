@@ -179,6 +179,7 @@ struct UserManagementView: View {
                             ForEach(viewModel.users) { user in
                                 UserCard(user: user)
                                     .padding(.horizontal)
+                                    .id(user.id + (user.blocked ? "-blocked" : "-unblocked")) // Force refresh when block status changes
                             }
                         }
                         .padding(.vertical, 8)
@@ -188,71 +189,179 @@ struct UserManagementView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(.systemGroupedBackground))
+        .onAppear {
+            setupNotificationListener()
+        }
+        .onDisappear {
+            NotificationCenter.default.removeObserver(self)
+        }
+    }
+    
+    private func setupNotificationListener() {
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("UserBlockStatusChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            // Update UI without re-fetching all users
+            if let userInfo = notification.userInfo,
+               let userId = userInfo["userId"] as? String,
+               let isBlocked = userInfo["isBlocked"] as? Bool {
+                
+                // Find and update the user in the view model's list
+                if let index = viewModel.users.firstIndex(where: { $0.id == userId }) {
+                    viewModel.users[index].blocked = isBlocked
+                }
+            }
+        }
+        
+        // Also listen for model updates
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("UserModelUpdated"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // This will cause the view to refresh with the updated model data
+        }
     }
 }
 
 struct UserCard: View {
     @State var user: UserData
     @State private var showDetailView = false
+    @StateObject private var viewModel = UserManagementViewModel()
+    @State private var isUpdating = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
-        Button(action: {
-            if user.role == .restaurant || user.role == .driver {
-                showDetailView = true
-            }
-        }) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Name row
-                HStack(spacing: 12) {
-                    Image(systemName: "person.circle.fill")
-                        .foregroundColor(Color(hex: "F4A261"))
-                        .font(.system(size: 36))
+        VStack(alignment: .leading, spacing: 12) {
+            // Name row with status indicator
+            HStack(spacing: 12) {
+                Image(systemName: "person.circle.fill")
+                    .foregroundColor(Color(hex: "F4A261"))
+                    .font(.system(size: 36))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(user.fullName)
+                        .font(.headline)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(user.fullName)
-                            .font(.headline)
-                        
-                        if let status = user.documentStatus {
-                            Text(status.capitalized)
-                                .font(.caption)
-                                .foregroundColor(statusColor(for: status))
-                        }
+                    if let status = user.documentStatus {
+                        Text(status.capitalized)
+                            .font(.caption)
+                            .foregroundColor(statusColor(for: status))
                     }
                 }
                 
-                // Email row
-                HStack {
-                    Image(systemName: "envelope.fill")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 14))
-                        .frame(width: 20)
-                    Text(user.email)
-                        .font(.subheadline)
-                }
+                Spacer()
                 
-                // Phone row
-                HStack {
-                    Image(systemName: "phone.fill")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 14))
-                        .frame(width: 20)
-                    Text(user.phone)
-                        .font(.subheadline)
+                // Show blocked status indicator
+                if user.blocked {
+                    Text("Blocked")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red)
+                        .cornerRadius(4)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            
+            // Email row
+            HStack {
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                Text(user.email)
+                    .font(.subheadline)
+            }
+            
+            // Phone row
+            HStack {
+                Image(systemName: "phone.fill")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                Text(user.phone)
+                    .font(.subheadline)
+            }
+            
+            // Debug indicator (will be removed in production)
+            Text("Blocked status: \(user.blocked ? "Yes" : "No")")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.vertical, 4)
+            
+            // Add block/unblock button for customers
+            if user.role == .customer {
+                Divider()
+                
+                Button(action: {
+                    toggleUserBlock()
+                }) {
+                    HStack {
+                        Image(systemName: user.blocked ? "lock.open.fill" : "lock.fill")
+                        Text(user.blocked ? "Unblock User" : "Block User")
+                        
+                        if isUpdating {
+                            Spacer()
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(user.blocked ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .disabled(isUpdating)
+            }
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if user.role == .restaurant || user.role == .driver {
+                showDetailView = true
+            }
+        }
         .sheet(isPresented: $showDetailView) {
             if user.role == .restaurant {
                 RestaurantDetailView(user: $user)
             } else if user.role == .driver {
                 DriverDetailView(user: $user)
             }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .onAppear {
+            setupNotifications()
+        }
+        .onDisappear {
+            NotificationCenter.default.removeObserver(self)
+        }
+    }
+    
+    private func setupNotifications() {
+        print("👤 UserCard setup for user: \(user.fullName) (ID: \(user.id)) - Initial blocked status: \(user.blocked)")
+        
+        // Listen for model updates
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("UserModelUpdated"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // This will cause the view to refresh if needed
+            // The @State user variable will be updated by the ViewModel
         }
     }
     
@@ -266,6 +375,31 @@ struct UserCard: View {
             return .orange
         default:
             return .gray
+        }
+    }
+    
+    private func toggleUserBlock() {
+        isUpdating = true
+        print("🔄 Starting to toggle block status for user: \(user.id) - Current blocked status: \(user.blocked)")
+        
+        viewModel.toggleUserBlock(userId: user.id, userRole: user.role, currentBlocked: user.blocked) { error in
+            isUpdating = false
+            if let error = error {
+                errorMessage = "Failed to update user: \(error.localizedDescription)"
+                showError = true
+                print("❌ Error updating block status: \(error.localizedDescription)")
+            } else {
+                // Update the local user status immediately
+                user.blocked = !user.blocked
+                print("✅ Successfully toggled blocked status. New status: \(user.blocked)")
+                
+                // Post a notification to refresh the UserManagementView
+                NotificationCenter.default.post(
+                    name: Notification.Name("UserBlockStatusChanged"),
+                    object: nil,
+                    userInfo: ["userId": user.id, "isBlocked": user.blocked]
+                )
+            }
         }
     }
 }
@@ -531,6 +665,7 @@ struct UserData: Identifiable {
     let email: String
     let phone: String
     let role: UserRole
+    var blocked: Bool = false
     // Document related fields
     var documentStatus: String?
     var documentsSubmitted: Bool?

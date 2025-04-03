@@ -29,9 +29,13 @@ class UserManagementViewModel: ObservableObject {
                     continue
                 }
                 
+                let userId = snapshot.key
                 let fullName = userData["fullName"] as? String ?? "No Name"
                 let email = userData["email"] as? String ?? "No Email"
                 let phone = userData["phone"] as? String ?? "No Phone"
+                let blocked = userData["blocked"] as? Bool ?? false
+                
+                print("🔍 User: \(fullName) (ID: \(userId)) - Blocked status: \(blocked)")
                 
                 var documentStatus: String?
                 var documentsSubmitted: Bool?
@@ -79,6 +83,7 @@ class UserManagementViewModel: ObservableObject {
                     email: email,
                     phone: phone,
                     role: role,
+                    blocked: blocked,
                     documentStatus: documentStatus,
                     documentsSubmitted: documentsSubmitted,
                     restaurantProofURL: restaurantProofURL,
@@ -112,6 +117,35 @@ class UserManagementViewModel: ObservableObject {
                     // Update the local users array
                     if let index = self.users.firstIndex(where: { $0.id == userId }) {
                         self.users[index].documentStatus = status
+                    }
+                    completion(nil)
+                }
+            }
+        }
+    }
+    
+    func toggleUserBlock(userId: String, userRole: UserRole, currentBlocked: Bool, completion: @escaping (Error?) -> Void) {
+        let rolePath = "\(userRole.rawValue.lowercased())s"
+        let newBlockedStatus = !currentBlocked
+        let updates = [
+            "blocked": newBlockedStatus
+        ]
+        
+        db.child(rolePath).child(userId).updateChildValues(updates) { [weak self] error, _ in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(error)
+                } else {
+                    // Update the local users array immediately
+                    if let index = self.users.firstIndex(where: { $0.id == userId }) {
+                        self.users[index].blocked = newBlockedStatus
+                        
+                        // Force a UI refresh by posting a notification
+                        NotificationCenter.default.post(
+                            name: Notification.Name("UserModelUpdated"),
+                            object: nil
+                        )
                     }
                     completion(nil)
                 }

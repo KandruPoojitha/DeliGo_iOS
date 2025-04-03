@@ -106,6 +106,18 @@ class AuthViewModel: ObservableObject {
                 print("Found customer user")
                 if let userData = snapshot.value as? [String: Any] {
                     self.updateUserData(from: userData)
+                    
+                    // Check if the customer is blocked
+                    if let isBlocked = userData["blocked"] as? Bool, isBlocked {
+                        print("User is blocked and cannot log in: \(userId)")
+                        DispatchQueue.main.async {
+                            self.isLoading = false
+                            self.errorMessage = "Your account has been blocked. Please contact support for assistance."
+                            // Log the user out since they're blocked
+                            self.logout()
+                        }
+                        return
+                    }
                 }
                 DispatchQueue.main.async {
                     self.currentUserRole = .customer
@@ -408,6 +420,19 @@ class AuthViewModel: ObservableObject {
                 print("Found user data in \(rolePath)")
                 if let userData = snapshot.value as? [String: Any] {
                     self.updateUserData(from: userData)
+                    
+                    // Check if the user is a customer and is blocked
+                    if role == .customer {
+                        if let isBlocked = userData["blocked"] as? Bool, isBlocked {
+                            print("User is blocked and cannot use the app: \(userId)")
+                            DispatchQueue.main.async {
+                                self.errorMessage = "Your account has been blocked. Please contact support for assistance."
+                                // Log the user out since they're blocked
+                                self.logout()
+                            }
+                            return
+                        }
+                    }
                     
                     // For restaurants, also check store_info
                     if role == .restaurant {
