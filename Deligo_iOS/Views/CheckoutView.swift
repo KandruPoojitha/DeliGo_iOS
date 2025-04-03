@@ -3,6 +3,31 @@ import FirebaseDatabase
 import StripePaymentSheet
 import GooglePlaces
 
+// Helper enums moved outside the struct
+enum DeliveryOption: String, CaseIterable, Identifiable {
+    case delivery = "Delivery"
+    case pickup = "Pickup"
+    
+    var id: String { rawValue }
+}
+
+enum PaymentMethod: String, CaseIterable, Identifiable {
+    case card = "Credit/Debit Card"
+    case cod = "Cash on Delivery"
+    
+    var id: String { rawValue }
+}
+
+extension Encodable {
+    var asDictionary: [String: Any] {
+        guard let data = try? JSONEncoder().encode(self),
+              let dictionary = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
+            return [:]
+        }
+        return dictionary
+    }
+}
+
 struct CheckoutView: View {
     @ObservedObject var cartManager: CartManager
     @ObservedObject var authViewModel: AuthViewModel
@@ -29,6 +54,12 @@ struct CheckoutView: View {
     @State private var isProcessingPayment = false
     @State private var showingSuggestions = false
     @State private var restaurantDiscount: Int? = nil
+    
+    // Restaurant status variables
+    @State private var isRestaurantOpen: Bool = true
+    @State private var restaurantHours: [String: String] = [:]
+    @State private var isScheduledOrder: Bool = false
+    @State private var scheduledDate = Date().addingTimeInterval(3600) // Default to 1 hour from now
     
     private let tipOptions: [Double] = [0, 10, 15, 20, 25]
     private let deliveryFee: Double = 4.99
@@ -61,10 +92,18 @@ struct CheckoutView: View {
         ScrollView {
             VStack(spacing: 20) {
                 orderItemsSection
+                
+                // Restaurant Status Section (if closed)
+                if !isRestaurantOpen {
+                    restaurantClosedSection
+                }
+                
                 deliveryOptionsSection
+                
                 if deliveryOption == DeliveryOption.delivery {
                     deliveryAddressSection
                 }
+                
                 tipSection
                 paymentMethodSection
                 orderSummarySection
@@ -89,17 +128,31 @@ struct CheckoutView: View {
             unitText = deliveryAddress.unit ?? ""
             instructionsText = deliveryAddress.instructions ?? ""
             
-            // Load restaurant discount
-            loadRestaurantDiscount()
+            // Load restaurant discount and check if restaurant is open
+            loadRestaurantInfo()
         }
     }
     
-    private func loadRestaurantDiscount() {
+    private func loadRestaurantInfo() {
         guard let firstItem = cartManager.cartItems.first else { return }
         let restaurantId = firstItem.restaurantId
         
         db.child("restaurants").child(restaurantId).observeSingleEvent(of: .value) { snapshot, _ in
             if let dict = snapshot.value as? [String: Any] {
+                // Check if restaurant is open
+                if let isOpen = dict["isOpen"] as? Bool {
+                    DispatchQueue.main.async {
+                        self.isRestaurantOpen = isOpen
+                    }
+                }
+                
+                // Load restaurant hours
+                if let hours = dict["hours"] as? [String: String] {
+                    DispatchQueue.main.async {
+                        self.restaurantHours = hours
+                    }
+                }
+                
                 // Check if discount field exists and is a valid integer
                 if let discount = dict["discount"] as? Int, discount > 0 {
                     DispatchQueue.main.async {
@@ -113,6 +166,67 @@ struct CheckoutView: View {
                 }
             }
         }
+    }
+    
+    private var restaurantClosedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "clock.fill")
+                    .foregroundColor(.red)
+                Text("Restaurant is currently closed")
+                    .font(.headline)
+                    .foregroundColor(.red)
+            }
+            
+            if let openingTime = restaurantHours["opening"], let closingTime = restaurantHours["closing"] {
+                Text("Opening Hours: \(openingTime) - \(closingTime)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            
+            Toggle("Schedule this order for later", isOn: $isScheduledOrder)
+                .tint(Color(hex: "F4A261"))
+                .onChange(of: isScheduledOrder) { _, newValue in
+                    if newValue {
+                        // Set default scheduled time to restaurant opening time if possible
+                        if let openingTimeString = restaurantHours["opening"] {
+                            if let scheduledTime = parseTimeString(openingTimeString) {
+                                scheduledDate = scheduledTime
+                            }
+                        }
+                    }
+                }
+            
+            if isScheduledOrder {
+                DatePicker(
+                    "Schedule for:",
+                    selection: $scheduledDate,
+                    in: Date()...Date().addingTimeInterval(7*24*3600), // Limit to 1 week in the future
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .datePickerStyle(CompactDatePickerStyle())
+            }
+            
+            Divider()
+        }
+    }
+    
+    private func parseTimeString(_ timeString: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        
+        if let date = formatter.date(from: timeString) {
+            let calendar = Calendar.current
+            var components = calendar.dateComponents([.hour, .minute], from: date)
+            let today = calendar.dateComponents([.year, .month, .day], from: Date())
+            
+            components.year = today.year
+            components.month = today.month
+            components.day = today.day
+            
+            return calendar.date(from: components)
+        }
+        return nil
     }
     
     private var orderItemsSection: some View {
@@ -350,7 +464,7 @@ struct CheckoutView: View {
                         .padding(.trailing, 8)
                 }
                 
-                Text(isProcessingPayment ? "Processing..." : "Place Order")
+                Text(isProcessingPayment ? "Processing..." : isScheduledOrder ? "Schedule Order" : "Place Order")
                     .font(.headline)
             }
             .foregroundColor(.white)
@@ -363,11 +477,14 @@ struct CheckoutView: View {
     }
     
     private var isValidOrder: Bool {
-        if deliveryOption == DeliveryOption.delivery {
-            return !deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
-                && !cartManager.cartItems.isEmpty
-        }
-        return !cartManager.cartItems.isEmpty
+        // Basic validation
+        let isAddressValid = deliveryOption != DeliveryOption.delivery || 
+            !deliveryAddress.streetAddress.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
+        
+        // Restaurant is open OR it's a scheduled order
+        let isTimingValid = isRestaurantOpen || isScheduledOrder
+        
+        return !cartManager.cartItems.isEmpty && isAddressValid && isTimingValid
     }
     
     private func placeOrder() {
@@ -389,6 +506,12 @@ struct CheckoutView: View {
             return
         }
         
+        if !isRestaurantOpen && !isScheduledOrder {
+            alertMessage = "Error: Restaurant is closed. Please schedule your order for later."
+            showingAlert = true
+            return
+        }
+        
         isProcessingPayment = true
         
         switch paymentMethod {
@@ -405,7 +528,11 @@ struct CheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentId):
-                    self.createOrder(userId: userId, status: "pending", paymentIntentId: paymentIntentId)
+                    if self.isScheduledOrder {
+                        self.createScheduledOrder(userId: userId, status: "scheduled", paymentIntentId: paymentIntentId)
+                    } else {
+                        self.createOrder(userId: userId, status: "pending", paymentIntentId: paymentIntentId)
+                    }
                 case .failure(let error):
                     self.isProcessingPayment = false
                     self.alertMessage = "Payment failed: \(error.localizedDescription)"
@@ -416,13 +543,17 @@ struct CheckoutView: View {
     }
     
     private func processCODOrder(userId: String) {
-        createOrder(userId: userId, status: "pending", paymentIntentId: nil)
+        if isScheduledOrder {
+            createScheduledOrder(userId: userId, status: "scheduled", paymentIntentId: nil)
+        } else {
+            createOrder(userId: userId, status: "pending", paymentIntentId: nil)
+        }
     }
     
-    private func createOrder(userId: String, status: String, paymentIntentId: String?) {
+    private func createScheduledOrder(userId: String, status: String, paymentIntentId: String?) {
         let orderId = UUID().uuidString
         
-        // Get the restaurant ID from the first cart item since we've validated all items are from the same restaurant
+        // Get the restaurant ID from the first cart item
         guard let firstItem = cartManager.cartItems.first else {
             alertMessage = "No items in cart. Unable to create order."
             showingAlert = true
@@ -430,15 +561,44 @@ struct CheckoutView: View {
             return
         }
         
-        // Use the restaurantId from the cart item
         let restaurantId = firstItem.restaurantId
-        print("DEBUG: Using restaurant ID from cart item: \(restaurantId)")
         
-        // Proceed with order creation
-        self.completeOrderCreation(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
+        // Convert scheduled date to timestamp
+        let scheduledTimestamp = scheduledDate.timeIntervalSince1970
+        
+        // Create order data (similar to regular order but with scheduling info)
+        var orderData = prepareOrderData(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
+        
+        // Add scheduling information
+        orderData["scheduledFor"] = scheduledTimestamp
+        orderData["isScheduled"] = true
+        
+        // Store in scheduled_orders path
+        saveToFirebase(path: "scheduled_orders", orderId: orderId, orderData: orderData)
     }
     
-    private func completeOrderCreation(orderId: String, userId: String, restaurantId: String, status: String, paymentIntentId: String?) {
+    private func createOrder(userId: String, status: String, paymentIntentId: String?) {
+        let orderId = UUID().uuidString
+        
+        // Get the restaurant ID from the first cart item
+        guard let firstItem = cartManager.cartItems.first else {
+            alertMessage = "No items in cart. Unable to create order."
+            showingAlert = true
+            isProcessingPayment = false
+            return
+        }
+        
+        let restaurantId = firstItem.restaurantId
+        
+        // Create order data
+        let orderData = prepareOrderData(orderId: orderId, userId: userId, restaurantId: restaurantId, status: status, paymentIntentId: paymentIntentId)
+        
+        // Store in regular orders path
+        saveToFirebase(path: "orders", orderId: orderId, orderData: orderData)
+    }
+    
+    private func prepareOrderData(orderId: String, userId: String, restaurantId: String, status: String, paymentIntentId: String?) -> [String: Any] {
+        // Create base order data that's common between regular and scheduled orders
         var orderData: [String: Any] = [
             "id": orderId,
             "userId": userId,
@@ -451,7 +611,6 @@ struct CheckoutView: View {
                     "description": item.description,
                     "price": item.price,
                     "quantity": item.quantity,
-                    "specialInstructions": item.specialInstructions,
                     "totalPrice": item.totalPrice
                 ]
                 
@@ -459,25 +618,31 @@ struct CheckoutView: View {
                     itemDict["imageURL"] = imageURL
                 }
                 
+                if !item.specialInstructions.isEmpty {
+                    itemDict["specialInstructions"] = item.specialInstructions
+                }
+                
                 // Convert customizations to compatible format
-                var convertedCustomizations: [String: [Any]] = [:]
+                var convertedCustomizations: [String: [[String: Any]]] = [:]
                 for (key, selections) in item.customizations {
-                    convertedCustomizations[key] = selections.map { selection in
+                    let mappedSelections: [[String: Any]] = selections.map { selection in
                         var selectionDict: [String: Any] = [
                             "optionId": selection.optionId,
                             "optionName": selection.optionName
                         ]
                         
-                        selectionDict["selectedItems"] = selection.selectedItems.map { item in
-                            return [
+                        let selectedItemsArray: [[String: Any]] = selection.selectedItems.map { item in
+                            [
                                 "id": item.id,
                                 "name": item.name,
                                 "price": item.price
                             ]
                         }
                         
+                        selectionDict["selectedItems"] = selectedItemsArray
                         return selectionDict
                     }
+                    convertedCustomizations[key] = mappedSelections
                 }
                 
                 itemDict["customizations"] = convertedCustomizations
@@ -520,9 +685,15 @@ struct CheckoutView: View {
             orderData["paymentIntentId"] = paymentIntentId
         }
         
+        return orderData
+    }
+    
+    private func saveToFirebase(path: String, orderId: String, orderData: [String: Any]) {
+        guard let userId = authViewModel.currentUserId else { return }
+        
         // Get customer information from Firebase
         let userRef = db.child("customers").child(userId)
-        userRef.observeSingleEvent(of: .value) { snapshot in
+        userRef.observeSingleEvent(of: .value) { snapshot, _ in
             // Create a mutable copy of the order data
             var updatedOrderData = orderData
             
@@ -537,26 +708,9 @@ struct CheckoutView: View {
                 }
             }
             
-            // Continue with order creation regardless of customer info
-            self.finalizeOrderCreation(orderRef: self.db.child("orders").child(orderId), orderData: updatedOrderData)
-        }
-    }
-    
-    private func finalizeOrderCreation(orderRef: DatabaseReference, orderData: [String: Any]) {
-        // Check connection status
-        let connectedRef = Database.database().reference(withPath: ".info/connected")
-        connectedRef.observe(.value) { snapshot, _ in
-            guard let connected = snapshot.value as? Bool, connected else {
-                DispatchQueue.main.async {
-                    self.isProcessingPayment = false
-                    self.alertMessage = "Error: No internet connection. Please try again."
-                    self.showingAlert = true
-                }
-                return
-            }
-            
-            // We're connected, proceed with order creation
-            orderRef.setValue(orderData) { error, _ in
+            // Save to appropriate Firebase path
+            let orderRef = self.db.child(path).child(orderId)
+            orderRef.setValue(updatedOrderData) { error, _ in
                 DispatchQueue.main.async {
                     self.isProcessingPayment = false
                     
@@ -568,34 +722,23 @@ struct CheckoutView: View {
                     }
                     
                     self.cartManager.clearCart()
-                    self.alertMessage = "Order placed successfully!"
+                    
+                    if path == "scheduled_orders" {
+                        self.alertMessage = "Order scheduled successfully for \(self.formatDate(self.scheduledDate))!"
+                    } else {
+                        self.alertMessage = "Order placed successfully!"
+                    }
                     self.showingAlert = true
                 }
             }
         }
     }
-}
-
-enum DeliveryOption: String, CaseIterable, Identifiable {
-    case delivery = "Delivery"
-    case pickup = "Pickup"
     
-    var id: String { rawValue }
-}
-
-enum PaymentMethod: String, CaseIterable, Identifiable {
-    case card = "Credit/Debit Card"
-    case cod = "Cash on Delivery"
-    
-    var id: String { rawValue }
-}
-
-extension Encodable {
-    var asDictionary: [String: Any] {
-        guard let data = try? JSONEncoder().encode(self),
-              let dictionary = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
-            return [:]
-        }
-        return dictionary
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
+        

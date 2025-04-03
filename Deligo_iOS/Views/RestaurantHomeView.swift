@@ -35,7 +35,7 @@ struct RestaurantHomeView: View {
                 if let restaurant = restaurant {
                     TabView(selection: $selectedTab) {
                         // Orders Tab
-                        OrdersTabView(selectedOrderTab: $selectedOrderTab, 
+                        OrdersTabView(selectedOrderTab: $selectedOrderTab,
                                     isRestaurantOpen: $isRestaurantOpen,
                                     authViewModel: authViewModel)
                             .tabItem {
@@ -622,7 +622,7 @@ struct NewOrdersView: View {
                             customerPhone: customerPhones[order.id],
                             onAccept: {
                                 acceptOrder(order)
-                            }, 
+                            },
                             onReject: {
                                 rejectOrder(order)
                             },
@@ -1529,7 +1529,7 @@ struct InProgressOrdersView: View {
         
         for order in orders {
             // Try with customerId first
-            if !order.customerId.isEmpty {
+            if !order.customerId.isEmpty && !containsInvalidPathCharacters(order.customerId) {
                 // Fetch both name and phone
                 database.child("customers").child(order.customerId).observeSingleEvent(of: .value) { snapshot, _ in
                     if let userData = snapshot.value as? [String: Any] {
@@ -1552,7 +1552,9 @@ struct InProgressOrdersView: View {
             
             // Also check users collection with userId if available
             database.child("orders").child(order.id).child("userId").observeSingleEvent(of: .value) { snapshot, _ in
-                if let userId = snapshot.value as? String, !userId.isEmpty {
+                if let userId = snapshot.value as? String, 
+                   !userId.isEmpty && 
+                   !self.containsInvalidPathCharacters(userId) {
                     // Try in users collection
                     database.child("users").child(userId).observeSingleEvent(of: .value) { userSnapshot, _ in
                         if let userData = userSnapshot.value as? [String: Any] {
@@ -1572,18 +1574,20 @@ struct InProgressOrdersView: View {
                 }
             }
             
-            // Also try in customers collection
-            database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot, _ in
-                if let userData = customerSnapshot.value as? [String: Any] {
-                    if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
-                        DispatchQueue.main.async {
-                            self.customerNames[order.id] = fullName
+            // Also try in customers collection if userId is valid
+            if !order.userId.isEmpty && !containsInvalidPathCharacters(order.userId) {
+                database.child("customers").child(order.userId).observeSingleEvent(of: .value) { customerSnapshot, _ in
+                    if let userData = customerSnapshot.value as? [String: Any] {
+                        if let fullName = userData["fullName"] as? String, !fullName.isEmpty {
+                            DispatchQueue.main.async {
+                                self.customerNames[order.id] = fullName
+                            }
                         }
-                    }
-                    
-                    if let phone = userData["phone"] as? String, !phone.isEmpty {
-                        DispatchQueue.main.async {
-                            self.customerPhones[order.id] = phone
+                        
+                        if let phone = userData["phone"] as? String, !phone.isEmpty {
+                            DispatchQueue.main.async {
+                                self.customerPhones[order.id] = phone
+                            }
                         }
                     }
                 }
@@ -1591,10 +1595,16 @@ struct InProgressOrdersView: View {
         }
     }
     
+    // Helper function to validate Firebase path components
+    private func containsInvalidPathCharacters(_ path: String) -> Bool {
+        let invalidCharacters = [".", "#", "$", "[", "]"]
+        return invalidCharacters.contains { path.contains($0) }
+    }
+    
     private func loadInProgressOrders() {
-        guard let restaurantId = authViewModel.currentUserId else { 
+        guard let restaurantId = authViewModel.currentUserId else {
             print("DEBUG: No restaurant ID available")
-            return 
+            return
         }
         
         print("DEBUG: 🔍 Loading in-progress orders for restaurant: \(restaurantId)")

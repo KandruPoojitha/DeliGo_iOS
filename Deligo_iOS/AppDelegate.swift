@@ -25,7 +25,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Set messaging delegate
         Messaging.messaging().delegate = self
         
+        // Initialize scheduled orders service
+        initializeScheduledOrdersService()
+        
         return true
+    }
+    
+    private func initializeScheduledOrdersService() {
+        // Start timer to process scheduled orders
+        ScheduledOrderService.shared.startScheduledOrdersTimer()
+        
+        // Immediately check for any pending scheduled orders
+        ScheduledOrderService.shared.processScheduledOrders()
+        
+        print("Scheduled orders service initialized")
     }
     
     func application(_ application: UIApplication,

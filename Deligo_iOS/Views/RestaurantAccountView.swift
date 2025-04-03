@@ -195,6 +195,16 @@ struct RestaurantAccountView: View {
                     }
                 }
                 
+                Section(header: Text("Orders Management")) {
+                    NavigationLink(destination: ScheduledOrdersView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "calendar.badge.clock")
+                            Text("Scheduled Orders")
+                            Spacer()
+                        }
+                    }
+                }
+                
                 Section(header: Text("Promotions")) {
                     NavigationLink(destination: SpecialDiscountsView(authViewModel: authViewModel)) {
                         HStack {
