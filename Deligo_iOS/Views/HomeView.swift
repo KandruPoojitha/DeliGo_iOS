@@ -569,6 +569,9 @@ struct DriverDetailView: View {
     @State private var selectedImageURL: String?
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var driverRating: Double?
+    @State private var totalRides: Int?
+    @State private var rejectedOrdersCount: Int?
     
     var body: some View {
         NavigationView {
@@ -595,6 +598,41 @@ struct DriverDetailView: View {
                             }
                         }
                         .padding(.vertical, 8)
+                    }
+                    
+                    // Rating Section (Only shown for approved drivers)
+                    if user.documentStatus?.lowercased() == "approved" {
+                        GroupBox(label: Text("Performance").bold()) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                if let rating = driverRating {
+                                    HStack {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.yellow)
+                                        Text("Rating: \(String(format: "%.1f", rating))")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                
+                                if let rides = totalRides {
+                                    HStack {
+                                        Image(systemName: "car.fill")
+                                            .foregroundColor(Color(hex: "F4A261"))
+                                        Text("Total Rides: \(rides)")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                
+                                if let rejected = rejectedOrdersCount {
+                                    HStack {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                        Text("Rejected Orders: \(rejected)")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
                     }
                     
                     // Documents Section
@@ -680,6 +718,11 @@ struct DriverDetailView: View {
                     }
                 }
             }
+            .onAppear {
+                if user.documentStatus?.lowercased() == "approved" {
+                    loadDriverRating()
+                }
+            }
         }
         .sheet(isPresented: $showDocumentPreview) {
             if let url = selectedImageURL {
@@ -714,6 +757,62 @@ struct DriverDetailView: View {
                 showError = true
             } else {
                 user.documentStatus = status
+            }
+        }
+    }
+    
+    private func loadDriverRating() {
+        let db = Database.database().reference()
+        
+        // Load ratings
+        db.child("drivers").child(user.id).child("ratingsandcomments").child("rating").observeSingleEvent(of: .value) { snapshot in
+            if let ratings = snapshot.value as? [String: Int] {
+                // Calculate average rating
+                var totalRating = 0
+                for (_, rating) in ratings {
+                    totalRating += rating
+                }
+                let averageRating = Double(totalRating) / Double(ratings.count)
+                
+                DispatchQueue.main.async {
+                    self.driverRating = averageRating
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.driverRating = 0.0
+                }
+            }
+        }
+        
+        // Load rejected orders count
+        db.child("drivers").child(user.id).child("rejectedOrdersCount").observeSingleEvent(of: .value) { snapshot in
+            if let count = snapshot.value as? Int {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = count
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = 0
+                }
+            }
+        }
+        
+        // Load total completed rides
+        db.child("orders").queryOrdered(byChild: "driverId").queryEqual(toValue: user.id).observeSingleEvent(of: .value) { snapshot in
+            var completedRides = 0
+            
+            for child in snapshot.children {
+                guard let orderSnapshot = child as? DataSnapshot,
+                      let orderData = orderSnapshot.value as? [String: Any],
+                      let status = orderData["status"] as? String,
+                      status.lowercased() == "delivered" else {
+                    continue
+                }
+                completedRides += 1
+            }
+            
+            DispatchQueue.main.async {
+                self.totalRides = completedRides
             }
         }
     }

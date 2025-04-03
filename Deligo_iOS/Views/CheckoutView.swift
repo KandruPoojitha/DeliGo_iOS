@@ -28,6 +28,7 @@ struct CheckoutView: View {
     @State private var alertMessage = ""
     @State private var isProcessingPayment = false
     @State private var showingSuggestions = false
+    @State private var restaurantDiscount: Int? = nil
     
     private let tipOptions: [Double] = [0, 10, 15, 20, 25]
     private let deliveryFee: Double = 4.99
@@ -40,7 +41,12 @@ struct CheckoutView: View {
     }
     
     var subtotal: Double {
-        cartManager.totalCartPrice
+        let baseSubtotal = cartManager.totalCartPrice
+        if let discount = restaurantDiscount {
+            let discountAmount = (baseSubtotal * Double(discount)) / 100.0
+            return baseSubtotal - discountAmount
+        }
+        return baseSubtotal
     }
     
     var tipAmount: Double {
@@ -82,6 +88,30 @@ struct CheckoutView: View {
             // Initialize the text fields from optional values
             unitText = deliveryAddress.unit ?? ""
             instructionsText = deliveryAddress.instructions ?? ""
+            
+            // Load restaurant discount
+            loadRestaurantDiscount()
+        }
+    }
+    
+    private func loadRestaurantDiscount() {
+        guard let firstItem = cartManager.cartItems.first else { return }
+        let restaurantId = firstItem.restaurantId
+        
+        db.child("restaurants").child(restaurantId).observeSingleEvent(of: .value) { snapshot, _ in
+            if let dict = snapshot.value as? [String: Any] {
+                // Check if discount field exists and is a valid integer
+                if let discount = dict["discount"] as? Int, discount > 0 {
+                    DispatchQueue.main.async {
+                        self.restaurantDiscount = discount
+                    }
+                } else {
+                    // If no discount field or invalid discount, set to nil
+                    DispatchQueue.main.async {
+                        self.restaurantDiscount = nil
+                    }
+                }
+            }
         }
     }
     
@@ -270,38 +300,44 @@ struct CheckoutView: View {
             Text("Order Summary")
                 .font(.headline)
             
-            VStack(spacing: 8) {
+            HStack {
+                Text("Subtotal")
+                Spacer()
+                Text("$\(String(format: "%.2f", cartManager.totalCartPrice))")
+            }
+            
+            if let discount = restaurantDiscount {
                 HStack {
-                    Text("Subtotal")
+                    Text("Discount (\(discount)%)")
                     Spacer()
-                    Text("$\(String(format: "%.2f", subtotal))")
-                }
-                
-                if tipPercentage > 0 {
-                    HStack {
-                        Text("Tip (\(Int(tipPercentage))%)")
-                        Spacer()
-                        Text("$\(String(format: "%.2f", tipAmount))")
-                    }
-                }
-                
-                if deliveryOption == DeliveryOption.delivery {
-                    HStack {
-                        Text("Delivery Fee")
-                        Spacer()
-                        Text("$\(String(format: "%.2f", deliveryFee))")
-                    }
-                }
-                
-                HStack {
-                    Text("Total")
-                        .fontWeight(.bold)
-                    Spacer()
-                    Text("$\(String(format: "%.2f", total))")
-                        .fontWeight(.bold)
+                    Text("-$\(String(format: "%.2f", (cartManager.totalCartPrice * Double(discount)) / 100.0))")
+                        .foregroundColor(.green)
                 }
             }
-            .font(.subheadline)
+            
+            HStack {
+                Text("Tip (\(Int(tipPercentage))%)")
+                Spacer()
+                Text("$\(String(format: "%.2f", tipAmount))")
+            }
+            
+            if deliveryOption == DeliveryOption.delivery {
+                HStack {
+                    Text("Delivery Fee")
+                    Spacer()
+                    Text("$\(String(format: "%.2f", deliveryFee))")
+                }
+            }
+            
+            Divider()
+            
+            HStack {
+                Text("Total")
+                    .fontWeight(.bold)
+                Spacer()
+                Text("$\(String(format: "%.2f", total))")
+                    .fontWeight(.bold)
+            }
         }
     }
     
@@ -447,7 +483,9 @@ struct CheckoutView: View {
                 itemDict["customizations"] = convertedCustomizations
                 return itemDict
             },
-            "subtotal": subtotal,
+            "subtotal": cartManager.totalCartPrice,
+            "discountPercentage": restaurantDiscount ?? 0,
+            "discountAmount": restaurantDiscount != nil ? (cartManager.totalCartPrice * Double(restaurantDiscount!)) / 100.0 : 0,
             "tipPercentage": tipPercentage,
             "tipAmount": tipAmount,
             "deliveryFee": deliveryOption == DeliveryOption.delivery ? deliveryFee : 0,
