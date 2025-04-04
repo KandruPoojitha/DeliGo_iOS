@@ -296,7 +296,8 @@ struct DriverHomeView: View {
                                 },
                                 onReject: {
                                     showRejectionConfirmation()
-                                }
+                                },
+                                authViewModel: authViewModel
                             )
                         }
                         
@@ -873,6 +874,7 @@ struct ActiveOrderCard: View {
     let order: DeliveryOrder
     let onAccept: (OrderStatus) -> Void
     let onReject: () -> Void
+    @ObservedObject var authViewModel: AuthViewModel
     @StateObject private var locationManager = DeliveryLocationManager.shared
     @State private var showingActionSheet = false
     @State private var restaurantName: String = "Loading..."
@@ -978,16 +980,38 @@ struct ActiveOrderCard: View {
                     }
                 } else if order.orderStatus == "picked_up" {
                     // Show Mark as Delivered button for picked up orders
-                    Button(action: {
-                        onAccept(.delivered)
-                    }) {
-                        Text("Mark as Delivered")
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                    VStack(spacing: 12) {
+                        // Chat with customer button
+                        NavigationLink(destination: OrderChatView(
+                            orderId: order.id,
+                            chatType: "driver_customer",
+                            recipientId: order.userId,
+                            recipientName: customerName,
+                            authViewModel: authViewModel
+                        )) {
+                            HStack {
+                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                Text("Chat with Customer")
+                            }
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.green)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
                             .cornerRadius(12)
+                        }
+                        
+                        // Mark as Delivered button
+                        Button(action: {
+                            onAccept(.delivered)
+                        }) {
+                            Text("Mark as Delivered")
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .cornerRadius(12)
+                        }
                     }
                 }
             }
@@ -1031,7 +1055,14 @@ struct ActiveOrderCard: View {
             guard let data = snapshot.value as? [String: Any] else { return }
             
             if let fullName = data["fullName"] as? String {
-                self.customerName = fullName
+                DispatchQueue.main.async {
+                    self.customerName = fullName
+                }
+            } else if let firstName = data["firstName"] as? String,
+                      let lastName = data["lastName"] as? String {
+                DispatchQueue.main.async {
+                    self.customerName = "\(firstName) \(lastName)"
+                }
             }
         }
     }

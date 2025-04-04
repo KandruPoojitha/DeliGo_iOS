@@ -3,8 +3,9 @@ import FirebaseDatabase
 
 struct OrderChatView: View {
     let orderId: String
-    let restaurantId: String
-    let restaurantName: String
+    let chatType: String // "restaurant_customer" or "driver_customer"
+    let recipientId: String
+    let recipientName: String
     @ObservedObject var authViewModel: AuthViewModel
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = []
@@ -25,7 +26,7 @@ struct OrderChatView: View {
                         .foregroundColor(.primary)
                 }
                 
-                Text(restaurantName)
+                Text(recipientName)
                     .font(.headline)
                     .padding(.leading, 8)
                 
@@ -49,7 +50,7 @@ struct OrderChatView: View {
                         .foregroundColor(.gray)
                     Text("No messages yet")
                         .font(.headline)
-                    Text("Start a conversation with the restaurant")
+                    Text("Start a conversation with \(chatType == "driver_customer" ? "the customer" : "the restaurant")")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -60,7 +61,10 @@ struct OrderChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(messages) { message in
-                            MessageBubble(message: message, isFromCurrentUser: message.senderType == "customer")
+                            MessageBubble(
+                                message: message,
+                                isFromCurrentUser: message.senderId == authViewModel.currentUserId
+                            )
                         }
                     }
                     .padding(.horizontal)
@@ -95,7 +99,7 @@ struct OrderChatView: View {
         isLoading = true
         
         // Reference to the messages for this order
-        let messagesRef = database.child("orders").child(orderId).child("messages")
+        let messagesRef = database.child("orders").child(orderId).child(chatType == "driver_customer" ? "driver_customer_messages" : "messages")
         
         // Listen for messages
         messagesRef.observe(.value) { snapshot in
@@ -126,13 +130,13 @@ struct OrderChatView: View {
             return
         }
         
-        let messagesRef = database.child("orders").child(orderId).child("messages")
+        let messagesRef = database.child("orders").child(orderId).child(chatType == "driver_customer" ? "driver_customer_messages" : "messages")
         let newMessageRef = messagesRef.childByAutoId()
         
         let message = [
             "senderId": userId,
             "senderName": userName,
-            "senderType": "customer",
+            "senderType": chatType == "driver_customer" ? "driver" : "customer",
             "message": messageText.trimmingCharacters(in: .whitespacesAndNewlines),
             "timestamp": ServerValue.timestamp()
         ] as [String: Any]
@@ -153,8 +157,9 @@ struct OrderChatView: View {
 #Preview {
     OrderChatView(
         orderId: "order123", 
-        restaurantId: "restaurant123",
-        restaurantName: "Sample Restaurant",
+        chatType: "restaurant_customer",
+        recipientId: "customer123",
+        recipientName: "Sample Customer",
         authViewModel: AuthViewModel()
     )
 } 

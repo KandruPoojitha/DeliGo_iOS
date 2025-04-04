@@ -456,6 +456,31 @@ struct CustomerOrderCard: View {
             if isExpanded {
                 Divider()
                 
+                // Add chat button for picked up orders
+                if order.orderStatus.lowercased() == "picked_up" && order.driverId != nil {
+                    HStack {
+                        Spacer()
+                        NavigationLink(destination: OrderChatView(
+                            orderId: order.id,
+                            chatType: "driver_customer",
+                            recipientId: order.driverId ?? "",
+                            recipientName: order.driverName ?? "Driver",
+                            authViewModel: authViewModel
+                        )) {
+                            HStack {
+                                Image(systemName: "bubble.left.and.bubble.right.fill")
+                                Text("Chat with Driver")
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                
                 // Delivery details if applicable
                 if order.deliveryOption.lowercased() == "delivery" {
                     VStack(alignment: .leading, spacing: 8) {
@@ -607,8 +632,9 @@ struct CustomerOrderCard: View {
                             // Chat with restaurant button
                             NavigationLink(destination: OrderChatView(
                                 orderId: order.id,
-                                restaurantId: order.restaurantId,
-                                restaurantName: order.restaurantName,
+                                chatType: "customer_restaurant",
+                                recipientId: order.restaurantId,
+                                recipientName: order.restaurantName ?? "Restaurant",
                                 authViewModel: authViewModel
                             )) {
                                 HStack {
@@ -806,6 +832,8 @@ struct CustomerOrder: Identifiable {
     let restaurantId: String
     let restaurantName: String
     let userId: String
+    let customerId: String
+    let customerName: String
     let items: [CustomerOrderItem]
     let status: String
     let orderStatus: String
@@ -879,6 +907,8 @@ struct CustomerOrder: Identifiable {
         self.restaurantId = restaurantId
         self.restaurantName = data["restaurantName"] as? String ?? "Restaurant"
         self.userId = data["userId"] as? String ?? ""
+        self.customerId = data["userId"] as? String ?? ""
+        self.customerName = data["customerName"] as? String ?? "Customer"
         self.total = total
         self.subtotal = data["subtotal"] as? Double ?? 0.0
         self.deliveryFee = data["deliveryFee"] as? Double ?? 0.0
