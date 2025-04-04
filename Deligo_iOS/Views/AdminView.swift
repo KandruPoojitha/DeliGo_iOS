@@ -175,6 +175,10 @@ struct OtherActivitiesView: View {
                             .background(Color(hex: "F4A261"))
                             .cornerRadius(25)
                     }
+                    
+                    NavigationLink(destination: PaymentTransactionsView(), isActive: $showPaymentTransactions) {
+                        EmptyView()
+                    }
                 }
                 .padding(.horizontal, 20)
                 

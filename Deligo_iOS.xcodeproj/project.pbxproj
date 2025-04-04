@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		845A9A742D9B841900FAB59F /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 845A9A732D9B841900FAB59F /* StripePaymentSheet */; };
+		84B52EAE2D9F60F0007D4095 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 84B52EAD2D9F60F0007D4095 /* Stripe */; };
+		84B52EB02D9F60F0007D4095 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = 84B52EAF2D9F60F0007D4095 /* StripePayments */; };
+		84B52EB22D9F60F0007D4095 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 84B52EB12D9F60F0007D4095 /* StripePaymentsUI */; };
 		84E44C122D9B60FB00CC9411 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C112D9B60FB00CC9411 /* FirebaseAuth */; };
 		84E44C142D9B60FB00CC9411 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C132D9B60FB00CC9411 /* FirebaseCore */; };
 		84E44C162D9B60FB00CC9411 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 84E44C152D9B60FB00CC9411 /* FirebaseDatabase */; };
@@ -71,11 +74,14 @@
 				84E44C312D9B619000CC9411 /* GooglePlaces in Frameworks */,
 				84E44C1E2D9B60FB00CC9411 /* FirebaseMessaging in Frameworks */,
 				84E44C1A2D9B60FB00CC9411 /* FirebaseFunctions in Frameworks */,
+				84B52EAE2D9F60F0007D4095 /* Stripe in Frameworks */,
 				84E44C142D9B60FB00CC9411 /* FirebaseCore in Frameworks */,
 				84E44C202D9B60FB00CC9411 /* FirebaseStorage in Frameworks */,
 				84E44C122D9B60FB00CC9411 /* FirebaseAuth in Frameworks */,
 				84E44C1C2D9B60FB00CC9411 /* FirebaseInAppMessaging-Beta in Frameworks */,
 				845A9A742D9B841900FAB59F /* StripePaymentSheet in Frameworks */,
+				84B52EB02D9F60F0007D4095 /* StripePayments in Frameworks */,
+				84B52EB22D9F60F0007D4095 /* StripePaymentsUI in Frameworks */,
 				84E44C2E2D9B616A00CC9411 /* GoogleMaps in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -148,6 +154,9 @@
 				84E44C2D2D9B616A00CC9411 /* GoogleMaps */,
 				84E44C302D9B619000CC9411 /* GooglePlaces */,
 				845A9A732D9B841900FAB59F /* StripePaymentSheet */,
+				84B52EAD2D9F60F0007D4095 /* Stripe */,
+				84B52EAF2D9F60F0007D4095 /* StripePayments */,
+				84B52EB12D9F60F0007D4095 /* StripePaymentsUI */,
 			);
 			productName = Deligo_iOS;
 			productReference = 84D6A5562D72D0A900ACD0AD /* Deligo_iOS.app */;
@@ -646,6 +655,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripePaymentSheet;
+		};
+		84B52EAD2D9F60F0007D4095 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = Stripe;
+		};
+		84B52EAF2D9F60F0007D4095 /* StripePayments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePayments;
+		};
+		84B52EB12D9F60F0007D4095 /* StripePaymentsUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 845A9A722D9B841900FAB59F /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentsUI;
 		};
 		84E44C112D9B60FB00CC9411 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
