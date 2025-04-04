@@ -443,13 +443,13 @@ struct CustomerOrderCard: View {
             HStack {
                 Spacer()
                 
-                Text(order.orderStatusDisplay.capitalized)
+                Text(order.orderStatusDisplay)
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.2))
-                    .foregroundColor(statusColor)
+                    .background(order.statusColor.opacity(0.2))
+                    .foregroundColor(order.statusColor)
                     .cornerRadius(8)
             }
             
@@ -707,28 +707,6 @@ struct CustomerOrderCard: View {
         }
     }
     
-    private var statusColor: Color {
-        let status = order.status.lowercased()
-        
-        if status == "pending" {
-            return .orange
-        } else if ["accepted", "in_progress", "preparing", "ready_for_pickup"].contains(status) {
-            return .blue
-        } else if status == "assigned_driver" {
-            return .purple
-        } else if status == "picked_up" || order.orderStatus.lowercased() == "picked_up" {
-            return Color(hex: "4CAF50")
-        } else if status == "delivering" || order.orderStatus.lowercased() == "delivering" {
-            return .green
-        } else if status == "delivered" || order.orderStatus.lowercased() == "delivered" {
-            return .green
-        } else if ["cancelled", "rejected"].contains(status) || order.orderStatus.lowercased() == "cancelled" {
-            return .red
-        } else {
-            return .gray
-        }
-    }
-    
     private func formattedDate(from timestamp: TimeInterval) -> String {
         let date = Date(timeIntervalSince1970: timestamp)
         let formatter = DateFormatter()
@@ -844,25 +822,48 @@ struct CustomerOrder: Identifiable {
     let driverRating: Rating?
     
     var orderStatusDisplay: String {
-        switch (status.lowercased(), orderStatus.lowercased()) {
-        case ("pending", _):
+        let status = orderStatus.lowercased()
+        switch status {
+        case "pending":
             return "Pending"
-        case ("in_progress", "accepted"), (_, "accepted"):
+        case "accepted":
             return "Accepted"
-        case (_, "preparing"):
+        case "preparing":
             return "Preparing"
-        case ("assigned_driver", _):
-            return "Driver Assigned"
-        case ("picked_up", _), (_, "picked_up"):
-            return "On The Way"
-        case ("delivering", _), (_, "delivering"):
-            return "Out For Delivery"
-        case ("delivered", _), (_, "delivered"):
+        case "ready_for_pickup":
+            return "Ready for Pickup"
+        case "picked_up":
+            return "Picked Up"
+        case "delivering":
+            return "Delivering"
+        case "delivered":
             return "Delivered"
-        case ("cancelled", _), (_, "cancelled"), ("rejected", _):
+        case "cancelled", "rejected":
             return "Cancelled"
         default:
-            return status.capitalized
+            return orderStatus.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+    
+    var statusColor: Color {
+        let status = orderStatus.lowercased()
+        switch status {
+        case "pending":
+            return .orange
+        case "accepted", "preparing":
+            return .blue
+        case "ready_for_pickup":
+            return .purple
+        case "picked_up":
+            return Color(hex: "4CAF50")
+        case "delivering":
+            return .green
+        case "delivered":
+            return .green
+        case "cancelled", "rejected":
+            return .red
+        default:
+            return .gray
         }
     }
     
