@@ -68,8 +68,32 @@ struct DriverOrdersView: View {
                         if !pastOrders.isEmpty {
                             Section(header: Text("Past Orders")) {
                                 ForEach(pastOrders) { order in
-                                    NavigationLink(destination: DriverOrderDetailView(order: order)) {
-                                        OrderRow(order: order)
+                                    VStack {
+                                        NavigationLink(destination: DriverOrderDetailView(order: order)) {
+                                            OrderRow(order: order)
+                                        }
+                                        
+                                        // Add Group Chat button for delivered orders
+                                        if order.status.lowercased() == "delivered" || order.orderStatus.lowercased() == "delivered" {
+                                            HStack {
+                                                Spacer()
+                                                NavigationLink(destination: GroupChatView(
+                                                    orderId: order.id,
+                                                    authViewModel: authViewModel
+                                                )) {
+                                                    HStack {
+                                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                                        Text("Group Chat")
+                                                    }
+                                                    .padding(.vertical, 8)
+                                                    .padding(.horizontal, 16)
+                                                    .background(Color.blue.opacity(0.2))
+                                                    .foregroundColor(.blue)
+                                                    .cornerRadius(8)
+                                                }
+                                            }
+                                            .padding(.top, 4)
+                                        }
                                     }
                                 }
                             }
@@ -979,9 +1003,7 @@ struct ActiveOrderCard: View {
                             .cornerRadius(12)
                     }
                 } else if order.orderStatus == "picked_up" {
-                    // Show Mark as Delivered button for picked up orders
                     VStack(spacing: 12) {
-                        // Chat with customer button
                         NavigationLink(destination: OrderChatView(
                             orderId: order.id,
                             chatType: "driver_customer",
@@ -1000,7 +1022,6 @@ struct ActiveOrderCard: View {
                             .cornerRadius(12)
                         }
                         
-                        // Mark as Delivered button
                         Button(action: {
                             onAccept(.delivered)
                         }) {
@@ -1012,6 +1033,22 @@ struct ActiveOrderCard: View {
                                 .background(Color.green)
                                 .cornerRadius(12)
                         }
+                    }
+                } else if order.orderStatus == "delivered" {
+                    // Show Group Chat button for delivered orders
+                    NavigationLink(destination: GroupChatView(
+                        orderId: order.id,
+                        authViewModel: authViewModel
+                    )) {
+                        HStack {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                            Text("Group Chat")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .cornerRadius(12)
                     }
                 }
             }
@@ -1036,8 +1073,7 @@ struct ActiveOrderCard: View {
                let address = storeInfo["address"] as? String {
                 self.restaurantName = name
                 self.restaurantAddress = address
-                
-                // Geocode the restaurant address
+                    
                 let geocoder = CLGeocoder()
                 geocoder.geocodeAddressString(address) { placemarks, error in
                     if let location = placemarks?.first?.location?.coordinate {

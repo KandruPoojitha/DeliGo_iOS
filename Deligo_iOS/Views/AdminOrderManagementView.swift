@@ -3,6 +3,7 @@ import SwiftUI
 struct AdminOrderManagementView: View {
     @StateObject private var viewModel = AdminOrderManagementViewModel()
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var authViewModel: AuthViewModel
     
     var body: some View {
         VStack {
@@ -93,6 +94,28 @@ struct AdminOrderManagementView: View {
                                 }
                             }
                             .padding(.top, 4)
+                            
+                            // Add Group Chat button for delivered orders
+                            if order.orderStatus.lowercased() == "delivered" {
+                                HStack {
+                                    Spacer()
+                                    NavigationLink(destination: GroupChatView(
+                                        orderId: order.id,
+                                        authViewModel: authViewModel
+                                    )) {
+                                        HStack {
+                                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                            Text("Group Chat")
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 16)
+                                        .background(Color.blue.opacity(0.2))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(8)
+                                    }
+                                }
+                                .padding(.top, 8)
+                            }
                             
                             Divider()
                             

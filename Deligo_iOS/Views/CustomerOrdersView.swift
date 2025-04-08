@@ -629,23 +629,41 @@ struct CustomerOrderCard: View {
                                 .cornerRadius(8)
                             }
                             
-                            // Chat with restaurant button
-                            NavigationLink(destination: OrderChatView(
-                                orderId: order.id,
-                                chatType: "customer_restaurant",
-                                recipientId: order.restaurantId,
-                                recipientName: order.restaurantName ?? "Restaurant",
-                                authViewModel: authViewModel
-                            )) {
-                                HStack {
-                                    Image(systemName: "bubble.left.and.bubble.right.fill")
-                                    Text("Chat")
+                            // Group Chat button for delivered orders
+                            if order.orderStatus.lowercased() == "delivered" {
+                                NavigationLink(destination: GroupChatView(
+                                    orderId: order.id,
+                                    authViewModel: authViewModel
+                                )) {
+                                    HStack {
+                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                        Text("Group Chat")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(8)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.blue.opacity(0.2))
-                                .foregroundColor(.blue)
-                                .cornerRadius(8)
+                            } else {
+                                // Individual chat button for non-delivered orders
+                                NavigationLink(destination: OrderChatView(
+                                    orderId: order.id,
+                                    chatType: "customer_restaurant",
+                                    recipientId: order.restaurantId,
+                                    recipientName: order.restaurantName ?? "Restaurant",
+                                    authViewModel: authViewModel
+                                )) {
+                                    HStack {
+                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                        Text("Chat")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(8)
+                                }
                             }
                         }
                         

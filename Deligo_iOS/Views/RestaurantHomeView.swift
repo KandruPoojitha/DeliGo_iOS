@@ -935,15 +935,13 @@ struct OrderCard: View {
                 if order.status.lowercased() == "delivered" || (order.orderStatus ?? "").lowercased() == "delivered" {
                     Divider()
                     
-                    NavigationLink(destination: RestaurantChatView(
+                    NavigationLink(destination: GroupChatView(
                         orderId: order.id,
-                        customerId: order.customerId,
-                        customerName: customerName,
                         authViewModel: authViewModel
                     )) {
                         HStack {
                             Image(systemName: "bubble.left.and.bubble.right.fill")
-                            Text("Chat with Customer")
+                            Text("Group Chat")
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)

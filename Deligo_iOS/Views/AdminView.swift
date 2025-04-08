@@ -30,82 +30,68 @@ struct AdminView: View {
     }
     
     var body: some View {
-        VStack {
-            Image("deligo_logo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .padding(.top, 30)
-            
-            // Welcome Text
-            Text("Welcome, Admin!")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text("Admin Dashboard")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-            
-            Spacer().frame(height: 20)
-            
-            // Admin Actions
-            VStack(spacing: 15) {
-                Button(action: { selectedTab = .userManagement }) {
-                    AdminMenuButton(title: "User Management")
-                }
+        NavigationView {
+            VStack {
+                Image("deligo_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .padding(.top, 30)
                 
-                Button(action: { selectedTab = .chatManagement }) {
-                    ZStack(alignment: .topTrailing) {
-                        AdminMenuButton(title: "Chat Management")
-                        
-                        if totalUnreadCount > 0 {
-                            Text("\(totalUnreadCount)")
-                                .font(.caption)
-                                .padding(6)
-                                .background(Color.red)
-                                .foregroundColor(.white)
-                                .clipShape(Circle())
-                                .offset(x: -5, y: -5)
+                // Welcome Text
+                Text("Welcome, Admin!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("Admin Dashboard")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                Spacer().frame(height: 20)
+                
+                // Admin Actions
+                VStack(spacing: 15) {
+                    NavigationLink(destination: UserManagementView()) {
+                        AdminMenuButton(title: "User Management")
+                    }
+                    
+                    NavigationLink(destination: ChatManagementView(authViewModel: authViewModel)) {
+                        ZStack(alignment: .topTrailing) {
+                            AdminMenuButton(title: "Chat Management")
+                            
+                            if totalUnreadCount > 0 {
+                                Text("\(totalUnreadCount)")
+                                    .font(.caption)
+                                    .padding(6)
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .clipShape(Circle())
+                                    .offset(x: -5, y: -5)
+                            }
                         }
                     }
+                    
+                    NavigationLink(destination: OtherActivitiesView(authViewModel: authViewModel)) {
+                        AdminMenuButton(title: "Other Activities")
+                    }
                 }
+                .padding(.horizontal, 20)
                 
-                Button(action: { selectedTab = .otherActivities }) {
-                    AdminMenuButton(title: "Other Activities")
+                Spacer()
+                
+                Button(action: handleLogout) {
+                    Text("Logout")
+                        .foregroundColor(.red)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 30)
+                        .background(Color.white)
+                        .cornerRadius(8)
+                        .shadow(radius: 2)
                 }
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 20)
-            
-            Spacer()
-            
-            Button(action: handleLogout) {
-                Text("Logout")
-                    .foregroundColor(.red)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 30)
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .shadow(radius: 2)
-            }
-            .padding(.bottom, 20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGray6))
-        .sheet(item: $selectedTab) { tab in
-            switch tab {
-            case .userManagement:
-                NavigationView {
-                    UserManagementView()
-                }
-            case .chatManagement:
-                NavigationView {
-                    ChatManagementView(authViewModel: authViewModel)
-                }
-            case .otherActivities:
-                NavigationView {
-                    OtherActivitiesView(authViewModel: authViewModel)
-                }
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGray6))
         }
         .onAppear {
             loadTotalUnreadCount()
@@ -128,76 +114,60 @@ struct AdminView: View {
 struct OtherActivitiesView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var showOrderManagement = false
-    @State private var showPaymentTransactions = false
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                // Logo
-                Image("deligo_logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 60, height: 60)
-                    .padding(.top, 40)
-                
-                Text("Other Activities")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding(.bottom, 20)
-                
-                // Activity Buttons
-                VStack(spacing: 15) {
-                    NavigationLink(destination: AdminOrderManagementView(), isActive: $showOrderManagement) {
-                        EmptyView()
-                    }
-                    
-                    Button(action: {
-                        showOrderManagement = true
-                    }) {
-                        Text("Order Management")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(hex: "F4A261"))
-                            .cornerRadius(25)
-                    }
-                    
-                    Button(action: {
-                        showPaymentTransactions = true
-                    }) {
-                        Text("View Payment Transactions")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(hex: "F4A261"))
-                            .cornerRadius(25)
-                    }
-                    
-                    NavigationLink(destination: PaymentTransactionsView(), isActive: $showPaymentTransactions) {
-                        EmptyView()
-                    }
+        VStack(spacing: 20) {
+            // Logo
+            Image("deligo_logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 60, height: 60)
+                .padding(.top, 40)
+            
+            Text("Other Activities")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.bottom, 20)
+            
+            // Activity Buttons
+            VStack(spacing: 15) {
+                NavigationLink(destination: AdminOrderManagementView(authViewModel: authViewModel)) {
+                    Text("Order Management")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(hex: "F4A261"))
+                        .cornerRadius(25)
                 }
-                .padding(.horizontal, 20)
                 
-                Spacer()
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        HStack {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                    }
+                NavigationLink(destination: PaymentTransactionsView()) {
+                    Text("View Payment Transactions")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(hex: "F4A261"))
+                        .cornerRadius(25)
                 }
             }
-            .background(Color(.systemGray6))
+            .padding(.horizontal, 20)
+            
+            Spacer()
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { dismiss() }) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                }
+            }
+        }
+        .background(Color(.systemGray6))
     }
 }
 
