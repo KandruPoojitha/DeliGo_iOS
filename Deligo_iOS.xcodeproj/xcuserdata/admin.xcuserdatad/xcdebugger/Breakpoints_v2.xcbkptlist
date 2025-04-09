@@ -16,8 +16,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "607"
             endingLineNumber = "607"
-            landmarkName = "prepareOrderData(orderId:userId:restaurantId:status:paymentIntentId:)"
-            landmarkType = "7">
+            landmarkName = "deliveryAddressSection"
+            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -32,8 +32,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "608"
             endingLineNumber = "608"
-            landmarkName = "prepareOrderData(orderId:userId:restaurantId:status:paymentIntentId:)"
-            landmarkType = "7">
+            landmarkName = "deliveryAddressSection"
+            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

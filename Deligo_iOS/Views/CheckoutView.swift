@@ -62,13 +62,206 @@ struct CheckoutView: View {
     @State private var scheduledDate = Date().addingTimeInterval(3600) // Default to 1 hour from now
     
     private let tipOptions: [Double] = [0, 10, 15, 20, 25]
-    private let deliveryFee: Double = 4.99
+    @State private var deliveryFee: Double = 0.0
     private let db: DatabaseReference
     
     init(cartManager: CartManager, authViewModel: AuthViewModel) {
         self.cartManager = cartManager
         self.authViewModel = authViewModel
         self.db = Database.database().reference()
+    }
+    
+    private func calculateDeliveryFee() {
+        print("DEBUG: Starting delivery fee calculation")
+        
+        guard let firstItem = cartManager.cartItems.first else { 
+            print("DEBUG: No items in cart")
+            return 
+        }
+        let restaurantId = firstItem.restaurantId
+        print("DEBUG: Calculating delivery fee for restaurant: \(restaurantId)")
+        
+        // Reset delivery fee to ensure we don't show a stale value
+        DispatchQueue.main.async {
+            self.deliveryFee = 0.0
+        }
+        
+        // For debugging: Show actual path being queried
+        let restaurantPath = "restaurants/\(restaurantId)/location"
+        print("DEBUG: Querying Firebase path: \(restaurantPath)")
+        
+        // Get restaurant location from the location node
+        db.child("restaurants").child(restaurantId).child("location").observeSingleEvent(of: .value) { snapshot, _ in
+            print("DEBUG: Got restaurant location data: \(snapshot.value ?? "nil")")
+            
+            if let locationData = snapshot.value as? [String: Any],
+               let latitude = locationData["latitude"] as? Double,
+               let longitude = locationData["longitude"] as? Double {
+                
+                print("DEBUG: Found location coordinates in location node: (\(latitude), \(longitude))")
+                self.calculateWithRestaurantCoordinates(restaurantLat: latitude, restaurantLng: longitude)
+            } else {
+                print("DEBUG: Could not find coordinates in location node, trying legacy path")
+                
+                // Legacy path check - for older restaurant entries
+                self.db.child("restaurants").child(restaurantId).observeSingleEvent(of: .value) { snapshot, _ in
+                    if let restaurantData = snapshot.value as? [String: Any],
+                       let latitude = restaurantData["latitude"] as? Double,
+                       let longitude = restaurantData["longitude"] as? Double {
+                        
+                        print("DEBUG: Found coordinates at root level: (\(latitude), \(longitude))")
+                        self.calculateWithRestaurantCoordinates(restaurantLat: latitude, restaurantLng: longitude)
+                    } else {
+                        // Last resort: Try to geocode the address
+                        self.db.child("restaurants").child(restaurantId).child("store_info").child("address").observeSingleEvent(of: .value) { snapshot, _ in
+                            if let addressString = snapshot.value as? String {
+                                print("DEBUG: Got address string, geocoding: \(addressString)")
+                                self.geocodeRestaurantAddress(addressString)
+                            } else {
+                                print("DEBUG: Failed to get restaurant address in any recognized format")
+                                DispatchQueue.main.async {
+                                    self.alertMessage = "Couldn't calculate delivery fee: Restaurant location not found"
+                                    self.showingAlert = true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func geocodeRestaurantAddress(_ address: String) {
+        print("DEBUG: Geocoding restaurant address: \(address)")
+        let geocoder = CLGeocoder()
+        geocoder.geocodeAddressString(address) { placemarks, error in
+            if let error = error {
+                print("DEBUG: Restaurant geocoding error: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let placemark = placemarks?.first,
+                  let location = placemark.location else {
+                print("DEBUG: No location found for restaurant address")
+                return
+            }
+            
+            print("DEBUG: Restaurant geocoded coordinates: (\(location.coordinate.latitude), \(location.coordinate.longitude))")
+            
+            // Now we have restaurant coordinates, continue with the calculation
+            self.calculateWithRestaurantCoordinates(
+                restaurantLat: location.coordinate.latitude,
+                restaurantLng: location.coordinate.longitude
+            )
+        }
+    }
+    
+    private func calculateWithRestaurantCoordinates(restaurantLat: Double, restaurantLng: Double) {
+        guard let customerLat = self.locationSearchVM.selectedLocation?.coordinate.latitude,
+              let customerLng = self.locationSearchVM.selectedLocation?.coordinate.longitude else {
+            print("DEBUG: Failed to get customer coordinates")
+            
+            // Try to geocode the address directly if the coordinates aren't available
+            if !self.deliveryAddress.streetAddress.isEmpty {
+                print("DEBUG: Attempting to geocode customer address: \(self.deliveryAddress.streetAddress)")
+                self.geocodeAddress(self.deliveryAddress.streetAddress, restaurantLat: restaurantLat, restaurantLng: restaurantLng)
+            } else {
+                // Debug alert
+                DispatchQueue.main.async {
+                    self.alertMessage = "Please enter a delivery address"
+                    self.showingAlert = true
+                }
+            }
+            return
+        }
+        
+        print("DEBUG: Restaurant coordinates: (\(restaurantLat), \(restaurantLng))")
+        print("DEBUG: Customer coordinates: (\(customerLat), \(customerLng))")
+        
+        // Calculate distance in kilometers
+        let distance = self.calculateDistance(
+            from: CLLocation(latitude: restaurantLat, longitude: restaurantLng),
+            to: CLLocation(latitude: customerLat, longitude: customerLng)
+        )
+        
+        print("DEBUG: Distance calculated: \(distance) km")
+        
+        // Calculate delivery fee: $1.50 per kilometer
+        let perKmFee = 1.50
+        let calculatedFee = distance * perKmFee
+        
+        print("DEBUG: Delivery fee calculated: $\(calculatedFee)")
+        
+        DispatchQueue.main.async {
+            self.deliveryFee = calculatedFee
+            print("DEBUG: Delivery fee set to: $\(self.deliveryFee)")
+        }
+    }
+    
+    private func geocodeAddress(_ address: String, restaurantLat: Double? = nil, restaurantLng: Double? = nil) {
+        print("DEBUG: Starting geocoding for customer address: \(address)")
+        let geocoder = CLGeocoder()
+        geocoder.geocodeAddressString(address) { placemarks, error in
+            if let error = error {
+                print("DEBUG: Customer geocoding error: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let placemark = placemarks?.first,
+                  let location = placemark.location else {
+                print("DEBUG: No location found for customer address")
+                return
+            }
+            
+            print("DEBUG: Customer geocoded coordinates: (\(location.coordinate.latitude), \(location.coordinate.longitude))")
+            
+            // Save the coordinates
+            DispatchQueue.main.async {
+                self.deliveryAddress.latitude = location.coordinate.latitude
+                self.deliveryAddress.longitude = location.coordinate.longitude
+                
+                // If restaurant coordinates were provided, calculate now
+                if let restaurantLat = restaurantLat, let restaurantLng = restaurantLng {
+                    // Calculate with both coordinates available
+                    self.calculateDeliveryFeeWithCoordinates(
+                        restaurantLat: restaurantLat,
+                        restaurantLng: restaurantLng,
+                        customerLat: location.coordinate.latitude,
+                        customerLng: location.coordinate.longitude
+                    )
+                } else {
+                    // Otherwise, retry the entire calculation
+                    self.calculateDeliveryFee()
+                }
+            }
+        }
+    }
+    
+    private func calculateDeliveryFeeWithCoordinates(
+        restaurantLat: Double,
+        restaurantLng: Double,
+        customerLat: Double,
+        customerLng: Double
+    ) {
+        let distance = self.calculateDistance(
+            from: CLLocation(latitude: restaurantLat, longitude: restaurantLng),
+            to: CLLocation(latitude: customerLat, longitude: customerLng)
+        )
+        
+        let perKmFee = 1.50
+        let calculatedFee = distance * perKmFee
+        
+        print("DEBUG: Delivery fee calculated with explicit coordinates: $\(calculatedFee) for \(distance) km")
+        
+        DispatchQueue.main.async {
+            self.deliveryFee = calculatedFee
+            print("DEBUG: Updated delivery fee: $\(self.deliveryFee)")
+        }
+    }
+    
+    private func calculateDistance(from source: CLLocation, to destination: CLLocation) -> Double {
+        // Convert meters to kilometers
+        return source.distance(from: destination) / 1000.0
     }
     
     var subtotal: Double {
@@ -130,6 +323,22 @@ struct CheckoutView: View {
             
             // Load restaurant discount and check if restaurant is open
             loadRestaurantInfo()
+            
+            // Calculate delivery fee on appear if we have an address
+            if deliveryOption == .delivery && locationSearchVM.selectedLocation != nil {
+                print("DEBUG: Calculating delivery fee on appear")
+                calculateDeliveryFee()
+            }
+        }
+        .onChange(of: locationSearchVM.selectedLocation?.coordinate.latitude) { _ in
+            if deliveryOption == .delivery {
+                calculateDeliveryFee()
+            }
+        }
+        .onChange(of: deliveryOption) { newValue in
+            if newValue == .delivery && locationSearchVM.selectedLocation != nil {
+                calculateDeliveryFee()
+            }
         }
     }
     
@@ -267,11 +476,21 @@ struct CheckoutView: View {
                 }
             }
             .pickerStyle(SegmentedPickerStyle())
+            .onChange(of: deliveryOption) { oldValue, newValue in
+                if newValue == .delivery {
+                    print("DEBUG: Delivery option selected, calculating fee")
+                    calculateDeliveryFee()
+                }
+            }
             
             if deliveryOption == DeliveryOption.delivery {
                 Text("Delivery Fee: $\(String(format: "%.2f", deliveryFee))")
                     .font(.subheadline)
                     .foregroundColor(.gray)
+                    .onAppear {
+                        print("DEBUG: Delivery fee section appeared, calculating")
+                        calculateDeliveryFee()
+                    }
             }
             Divider()
         }
@@ -292,6 +511,7 @@ struct CheckoutView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .onChange(of: locationSearchVM.searchText) { oldValue, newValue in
                         showingSuggestions = !newValue.isEmpty
+                        print("DEBUG: Address text changed to: \(newValue)")
                     }
                 
                 if showingSuggestions && !locationSearchVM.suggestions.isEmpty {
@@ -299,11 +519,31 @@ struct CheckoutView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(locationSearchVM.suggestions) { suggestion in
                                 Button(action: {
+                                    print("DEBUG: Selected address: \(suggestion.title)")
                                     locationSearchVM.selectLocation(suggestion)
                                     deliveryAddress.streetAddress = suggestion.title
                                     deliveryAddress.placeID = suggestion.placeID
                                     locationSearchVM.searchText = suggestion.title
                                     showingSuggestions = false
+                                    
+                                    // Ensure we have the coordinates before calculating
+                                    if let location = locationSearchVM.selectedLocation?.coordinate {
+                                        print("DEBUG: Got coordinates: (\(location.latitude), \(location.longitude))")
+                                        deliveryAddress.latitude = location.latitude
+                                        deliveryAddress.longitude = location.longitude
+                                        
+                                        // Force UI update with a temporary value before the real calculation
+                                        DispatchQueue.main.async {
+                                            // Set a temporary non-zero value to show something is happening
+                                            self.deliveryFee = 0.01
+                                            // Then calculate the actual fee
+                                            self.calculateDeliveryFee()
+                                        }
+                                    } else {
+                                        print("DEBUG: No coordinates available for selected location")
+                                        // Still try to calculate with a fallback
+                                        calculateDeliveryFee()
+                                    }
                                 }) {
                                     VStack(alignment: .leading) {
                                         Text(suggestion.title)
@@ -323,6 +563,25 @@ struct CheckoutView: View {
                         .shadow(radius: 4)
                     }
                     .frame(maxHeight: 200)
+                }
+            }
+            
+            // Show current delivery fee with a refresh button
+            if deliveryOption == .delivery {
+                HStack {
+                    Text("Delivery Fee: $\(String(format: "%.2f", deliveryFee))")
+                        .font(.subheadline)
+                        .foregroundColor(.blue)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        print("DEBUG: Manual fee recalculation")
+                        calculateDeliveryFee()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.blue)
+                    }
                 }
             }
             
@@ -360,6 +619,12 @@ struct CheckoutView: View {
             Divider()
         }
         .padding(.horizontal)
+        .onAppear {
+            print("DEBUG: Delivery address section appeared")
+            if deliveryOption == .delivery && locationSearchVM.selectedLocation != nil {
+                calculateDeliveryFee()
+            }
+        }
     }
     
     private var tipSection: some View {
@@ -440,6 +705,12 @@ struct CheckoutView: View {
                     Text("Delivery Fee")
                     Spacer()
                     Text("$\(String(format: "%.2f", deliveryFee))")
+                }
+                .onAppear {
+                    // Force recalculation when this section appears
+                    if locationSearchVM.selectedLocation != nil {
+                        calculateDeliveryFee()
+                    }
                 }
             }
             
