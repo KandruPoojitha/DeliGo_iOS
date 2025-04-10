@@ -179,7 +179,7 @@ struct UserManagementView: View {
                             ForEach(viewModel.users) { user in
                                 UserCard(user: user)
                                     .padding(.horizontal)
-                                    .id(user.id + (user.blocked ? "-blocked" : "-unblocked")) // Force refresh when block status changes
+                                    .id("\(user.id)-\(user.blocked ? "blocked" : "unblocked")") // Force refresh when block status changes
                             }
                         }
                         .padding(.vertical, 8)
@@ -190,38 +190,13 @@ struct UserManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(.systemGroupedBackground))
         .onAppear {
-            setupNotificationListener()
-        }
-        .onDisappear {
-            NotificationCenter.default.removeObserver(self)
-        }
-    }
-    
-    private func setupNotificationListener() {
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name("UserBlockStatusChanged"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            // Update UI without re-fetching all users
-            if let userInfo = notification.userInfo,
-               let userId = userInfo["userId"] as? String,
-               let isBlocked = userInfo["isBlocked"] as? Bool {
-                
-                // Find and update the user in the view model's list
-                if let index = viewModel.users.firstIndex(where: { $0.id == userId }) {
-                    viewModel.users[index].blocked = isBlocked
-                }
+            // If we had a selected role previously, refresh the data
+            if let role = selectedRole {
+                viewModel.fetchUsers(for: role)
             }
         }
-        
-        // Also listen for model updates
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name("UserModelUpdated"),
-            object: nil,
-            queue: .main
-        ) { _ in
-            // This will cause the view to refresh with the updated model data
+        .onDisappear {
+            // View model will clean up its own listeners
         }
     }
 }
@@ -345,22 +320,46 @@ struct UserCard: View {
             setupNotifications()
         }
         .onDisappear {
-            NotificationCenter.default.removeObserver(self)
+            removeObservers()
         }
     }
     
     private func setupNotifications() {
         print("👤 UserCard setup for user: \(user.fullName) (ID: \(user.id)) - Initial blocked status: \(user.blocked)")
         
-        // Listen for model updates
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name("UserModelUpdated"),
-            object: nil,
-            queue: .main
-        ) { _ in
-            // This will cause the view to refresh if needed
-            // The @State user variable will be updated by the ViewModel
+        let rolePath = "\(user.role.rawValue.lowercased())s"
+        let db = Database.database().reference()
+        
+        let blockedPath = "\(rolePath)/\(user.id)/blocked"
+        print("Setting up Firebase observer at path: \(blockedPath)")
+        
+        db.child(rolePath).child(user.id).child("blocked").observe(.value) { snapshot in
+            print("Firebase snapshot received: \(snapshot.key) = \(String(describing: snapshot.value))")
+            
+            if let isBlocked = snapshot.value as? Bool {
+                print("UserCard received real-time update - User \(self.user.id) blocked status is now: \(isBlocked)")
+                
+                // Update the local user model
+                DispatchQueue.main.async {
+                    if self.user.blocked != isBlocked {
+                        self.user.blocked = isBlocked
+                        print("Updated UserCard block status to: \(isBlocked)")
+                    }
+                }
+            }
         }
+    }
+    
+    private func removeObservers() {
+        // Remove Firebase observers
+        let rolePath = "\(user.role.rawValue.lowercased())s"
+        let db = Database.database().reference()
+        
+        let blockedPath = "\(rolePath)/\(user.id)/blocked"
+        print("📡 Removing Firebase observer at path: \(blockedPath)")
+        
+        // Remove the specific observer for blocked status
+        db.child(rolePath).child(user.id).child("blocked").removeAllObservers()
     }
     
     private func statusColor(for status: String) -> Color {
@@ -387,16 +386,13 @@ struct UserCard: View {
                 showError = true
                 print("❌ Error updating block status: \(error.localizedDescription)")
             } else {
-                // Update the local user status immediately
-                user.blocked = !user.blocked
-                print("✅ Successfully toggled blocked status. New status: \(user.blocked)")
-                
-                // Post a notification to refresh the UserManagementView
-                NotificationCenter.default.post(
-                    name: Notification.Name("UserBlockStatusChanged"),
-                    object: nil,
-                    userInfo: ["userId": user.id, "isBlocked": user.blocked]
-                )
+                // Temporarily update the UI until the Firebase listener kicks in
+                // This makes the UI feel more responsive
+                DispatchQueue.main.async {
+                    self.user.blocked = !self.user.blocked
+                    print("✅ Temporarily updated UI to blocked status: \(self.user.blocked)")
+                }
+                print("✅ Successfully requested block status change")
             }
         }
     }

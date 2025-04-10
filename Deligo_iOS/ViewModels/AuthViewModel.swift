@@ -241,6 +241,9 @@ class AuthViewModel: ObservableObject {
     }
     
     func logout() {
+        // Remove all Firebase observers first
+        removeAllObservers()
+        
         // First reset all user data
         isAuthenticated = false
         currentUserRole = nil
@@ -464,6 +467,9 @@ class AuthViewModel: ObservableObject {
                             }
                         }
                     }
+                    
+                    // Set up real-time listener for blocked status
+                    self.setupBlockedStatusListener(userId: userId, role: role)
                 }
             }
         } else {
@@ -471,5 +477,40 @@ class AuthViewModel: ObservableObject {
             print("User role unknown, checking all paths")
             checkUserRoleAndRedirect(userId: userId)
         }
+    }
+    
+    // Setup real-time listener for changes to the user's blocked status
+    private func setupBlockedStatusListener(userId: String, role: UserRole) {
+        let rolePath = "\(role.rawValue.lowercased())s"
+        print("Setting up real-time blocked status listener for \(role.rawValue) with ID: \(userId)")
+        
+        // Listen specifically for the blocked field changes
+        db.child(rolePath).child(userId).child("blocked").observe(.value) { [weak self] snapshot in
+            guard let self = self else { return }
+            
+            if let isBlocked = snapshot.value as? Bool, isBlocked {
+                print("⚠️ Real-time update - User has been BLOCKED: \(userId)")
+                
+                DispatchQueue.main.async {
+                    self.errorMessage = "Your account has been blocked. Please contact support for assistance."
+                    // Log the user out since they're blocked
+                    self.logout()
+                }
+            } else {
+                print("✅ Real-time update - User is not blocked: \(userId)")
+            }
+        }
+    }
+    
+    private func removeAllObservers() {
+        guard let userId = currentUserId, let role = currentUserRole else {
+            return
+        }
+        
+        let rolePath = "\(role.rawValue.lowercased())s"
+        print("Removing all Firebase observers for user: \(userId)")
+        
+        // Remove blocked status listener
+        db.child(rolePath).child(userId).child("blocked").removeAllObservers()
     }
 } 

@@ -28,7 +28,78 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Initialize scheduled orders service
         initializeScheduledOrdersService()
         
+        // Register for application lifecycle notifications to check user block status
+        NotificationCenter.default.addObserver(
+            self, 
+            selector: #selector(applicationWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification, 
+            object: nil
+        )
+        
         return true
+    }
+    
+    @objc func applicationWillEnterForeground() {
+        print("App will enter foreground - checking user block status")
+        checkCurrentUserBlockStatus()
+    }
+    
+    private func checkCurrentUserBlockStatus() {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("No user logged in, skipping block status check")
+            return
+        }
+        
+        print("Checking block status for user: \(userId)")
+        
+        // We need to check all possible user collections since we don't know what type this user is
+        let database = Database.database().reference()
+        
+        // Check customers first
+        database.child("customers").child(userId).child("blocked").observeSingleEvent(of: .value) { snapshot in
+            if snapshot.exists(), let isBlocked = snapshot.value as? Bool, isBlocked {
+                print("User is BLOCKED in customers collection")
+                self.forceLogoutBlockedUser()
+                return
+            } else {
+                // Check drivers
+                database.child("drivers").child(userId).child("blocked").observeSingleEvent(of: .value) { snapshot in
+                    if snapshot.exists(), let isBlocked = snapshot.value as? Bool, isBlocked {
+                        print("User is BLOCKED in drivers collection")
+                        self.forceLogoutBlockedUser()
+                        return
+                    } else {
+                        // Check restaurants
+                        database.child("restaurants").child(userId).child("blocked").observeSingleEvent(of: .value) { snapshot in
+                            if snapshot.exists(), let isBlocked = snapshot.value as? Bool, isBlocked {
+                                print("User is BLOCKED in restaurants collection")
+                                self.forceLogoutBlockedUser()
+                                return
+                            }
+                            
+                            print("User is not blocked in any collection")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func forceLogoutBlockedUser() {
+        print("Forcing logout of blocked user")
+        
+        // Sign out from Firebase Auth
+        do {
+            try Auth.auth().signOut()
+            
+            // Post logout notification
+            NotificationCenter.default.post(
+                name: Notification.Name("UserDidLogout"),
+                object: nil
+            )
+        } catch {
+            print("Error signing out blocked user: \(error.localizedDescription)")
+        }
     }
     
     private func initializeScheduledOrdersService() {
