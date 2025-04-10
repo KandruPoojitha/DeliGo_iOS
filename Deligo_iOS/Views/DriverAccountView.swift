@@ -11,6 +11,12 @@ struct DriverAccountView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = true
+    private var databaseRef: DatabaseReference = Database.database().reference()
+    
+    // Add explicit public initializer
+    public init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+    }
     
     var body: some View {
         NavigationView {
@@ -61,8 +67,12 @@ struct DriverAccountView: View {
                     }
                     
                     Section(header: Text("Earnings")) {
-                        NavigationLink("Payment History") {
-                            Text("Payment History View")
+                        NavigationLink(destination: DriverTipHistoryView(authViewModel: authViewModel)) {
+                            Label("Tip History", systemImage: "dollarsign.circle")
+                        }
+                        
+                        NavigationLink(destination: DriverEarningsHistoryView(authViewModel: authViewModel)) {
+                            Label("Earnings History", systemImage: "chart.bar")
                         }
                         
                         NavigationLink("Bank Details") {
@@ -118,63 +128,100 @@ struct DriverAccountView: View {
                 Button("OK", role: .cancel) { }
             }
             .onAppear {
-                loadDriverProfile()
+                setupRealtimeProfileUpdates()
+            }
+            .onDisappear {
+                // Remove observers when the view disappears
+                removeProfileObservers()
             }
         }
     }
     
-    private func loadDriverProfile() {
-        isLoading = true
+    private func setupRealtimeProfileUpdates() {
         guard let driverId = authViewModel.currentUserId else {
             isLoading = false
             return
         }
         
-        let database = Database.database().reference()
+        isLoading = true
+        print("DEBUG: Setting up real-time profile updates for driver ID: \(driverId)")
         
-        // Load from the drivers path in Firebase
-        database.child("drivers").child(driverId).observeSingleEvent(of: .value) { snapshot in
+        // Set up real-time listener for driver data
+        let driversRef = databaseRef.child("drivers").child(driverId)
+        driversRef.observe(.value) { snapshot, _ in
             if snapshot.exists(), let value = snapshot.value as? [String: Any] {
-                print("DEBUG: Found driver data in Firebase")
+                print("DEBUG: Real-time update received from drivers path")
                 
-                // Extract driver data
-                self.fullName = value["fullName"] as? String ?? value["name"] as? String ?? ""
-                self.phone = value["phone"] as? String ?? ""
-                self.email = value["email"] as? String ?? ""
-                
-                // If email is still empty, try to get it from Auth
-                if self.email.isEmpty, let user = Auth.auth().currentUser {
-                    self.email = user.email ?? ""
-                }
-                
-                // If name is still empty, try to get it from hours.name or other possible locations
-                if self.fullName.isEmpty {
-                    if let hours = value["hours"] as? [String: Any],
-                       let name = hours["name"] as? String {
-                        self.fullName = name
+                DispatchQueue.main.async {
+                    // Extract driver data
+                    self.fullName = value["fullName"] as? String ?? value["name"] as? String ?? ""
+                    self.phone = value["phone"] as? String ?? ""
+                    self.email = value["email"] as? String ?? ""
+                    
+                    // If email is still empty, try to get it from Auth
+                    if self.email.isEmpty, let user = Auth.auth().currentUser {
+                        self.email = user.email ?? ""
                     }
-                }
-                
-                // If phone is still empty, try other possible locations
-                if self.phone.isEmpty {
-                    if let phone = value["phoneNumber"] as? String {
-                        self.phone = phone
+                    
+                    // If name is still empty, try to get it from hours.name or other possible locations
+                    if self.fullName.isEmpty {
+                        if let hours = value["hours"] as? [String: Any],
+                           let name = hours["name"] as? String {
+                            self.fullName = name
+                        } else if let userInfo = value["user_info"] as? [String: Any],
+                                  let name = userInfo["fullName"] as? String {
+                            self.fullName = name
+                        }
                     }
+                    
+                    // If phone is still empty, try other possible locations
+                    if self.phone.isEmpty {
+                        if let phone = value["phoneNumber"] as? String {
+                            self.phone = phone
+                        } else if let userInfo = value["user_info"] as? [String: Any],
+                                  let phone = userInfo["phone"] as? String {
+                            self.phone = phone
+                        }
+                    }
+                    
+                    self.isLoading = false
                 }
-                
-                self.isLoading = false
             } else {
                 print("DEBUG: No driver data found in Firebase")
                 
-                // If no data in drivers path, try to get basic info from Auth
-                if let user = Auth.auth().currentUser {
-                    self.email = user.email ?? ""
-                    self.fullName = user.displayName ?? ""
+                // Fallback to users collection
+                let usersRef = self.databaseRef.child("users").child(driverId)
+                usersRef.observe(.value) { userSnapshot, _ in
+                    DispatchQueue.main.async {
+                        if userSnapshot.exists(), let userData = userSnapshot.value as? [String: Any] {
+                            print("DEBUG: Found driver data in users collection")
+                            
+                            self.fullName = userData["fullName"] as? String ?? ""
+                            self.phone = userData["phone"] as? String ?? ""
+                            self.email = userData["email"] as? String ?? ""
+                        }
+                        
+                        // If still no data, try to get basic info from Auth
+                        if self.fullName.isEmpty || self.email.isEmpty {
+                            if let user = Auth.auth().currentUser {
+                                self.email = user.email ?? ""
+                                self.fullName = user.displayName ?? ""
+                            }
+                        }
+                        
+                        self.isLoading = false
+                    }
                 }
-                
-                self.isLoading = false
             }
         }
+    }
+    
+    private func removeProfileObservers() {
+        guard let driverId = authViewModel.currentUserId else { return }
+        
+        print("DEBUG: Removing Firebase observers for driver profile")
+        databaseRef.child("drivers").child(driverId).removeAllObservers()
+        databaseRef.child("users").child(driverId).removeAllObservers()
     }
 }
 
@@ -199,7 +246,7 @@ struct DriverEditProfileView: View {
                 }
                 
                 Section {
-                    Button(action: updateDriverProfile) {
+                    Button(action: updateProfile) {
                         if isLoading {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
@@ -223,35 +270,46 @@ struct DriverEditProfileView: View {
         }
     }
     
-    private func updateDriverProfile() {
+    private func updateProfile() {
         guard let driverId = authViewModel.currentUserId else { return }
         isLoading = true
         
         let database = Database.database().reference()
         let updates: [String: Any] = [
             "fullName": localName.trimmingCharacters(in: .whitespacesAndNewlines),
-            "phone": localPhone.trimmingCharacters(in: .whitespacesAndNewlines),
-            "name": localName.trimmingCharacters(in: .whitespacesAndNewlines) // Update name field too
+            "phone": localPhone.trimmingCharacters(in: .whitespacesAndNewlines)
         ]
         
-        // Update in hours.name if it exists
-        database.child("drivers").child(driverId).child("hours").updateChildValues([
-            "name": localName.trimmingCharacters(in: .whitespacesAndNewlines)
-        ])
+        print("DEBUG: Starting driver profile update for user: \(driverId)")
         
-        // Update in driver's root
-        database.child("drivers").child(driverId).updateChildValues(updates) { error, _ in
-            DispatchQueue.main.async {
-                self.isLoading = false
-                
-                if let error = error {
-                    print("DEBUG: Error updating driver data: \(error.localizedDescription)")
-                    self.onError(error.localizedDescription)
-                } else {
-                    print("DEBUG: Successfully updated driver data")
-                    self.fullName = self.localName
-                    self.phone = self.localPhone
-                    self.onSuccess()
+        // Update in both drivers and users collections to ensure consistency
+        let driversRef = database.child("drivers").child(driverId)
+        let usersRef = database.child("users").child(driverId)
+        
+        // First update in the drivers collection
+        driversRef.updateChildValues(updates) { error, _ in
+            if let error = error {
+                print("DEBUG: Error updating driver data: \(error.localizedDescription)")
+                // Don't call onError yet, still try users collection
+            } else {
+                print("DEBUG: Successfully updated driver data")
+            }
+            
+            // Also update in users collection to maintain data consistency
+            usersRef.updateChildValues(updates) { error, _ in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        print("DEBUG: Error updating user data: \(error.localizedDescription)")
+                        self.onError(error.localizedDescription)
+                    } else {
+                        print("DEBUG: Successfully updated user data")
+                        // Manually update the UI values
+                        self.fullName = self.localName
+                        self.phone = self.localPhone
+                        self.onSuccess()
+                    }
                 }
             }
         }

@@ -39,7 +39,7 @@ struct CustomerChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatManager.messages) { message in
-                            MessageBubble(message: message, isFromCurrentUser: message.senderType == .customer)
+                            MessageBubble(message: message, isFromCurrentUser: message.senderType == "customer")
                                 .id(message.id)
                         }
                     }
@@ -115,36 +115,6 @@ struct CustomerChatView: View {
                 showingAlert = true
             }
         }
-    }
-}
-
-struct MessageBubble: View {
-    let message: ChatMessage
-    let isFromCurrentUser: Bool
-    
-    var body: some View {
-        HStack {
-            if isFromCurrentUser {
-                Spacer()
-            }
-            
-            VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-                Text(message.message)
-                    .padding(10)
-                    .background(isFromCurrentUser ? Color(hex: "F4A261") : Color(.systemGray5))
-                    .foregroundColor(isFromCurrentUser ? .white : .primary)
-                    .cornerRadius(16)
-                
-                Text(message.formattedDate)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-            
-            if !isFromCurrentUser {
-                Spacer()
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 

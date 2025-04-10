@@ -124,6 +124,12 @@ struct RestaurantAccountView: View {
     @State private var storeInfo = StoreInfo()
     @State private var showingHoursSheet = false
     @State private var showingInfoSheet = false
+    private var databaseRef: DatabaseReference = Database.database().reference()
+    
+    // Add explicit public initializer
+    public init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+    }
     
     var body: some View {
         NavigationView {
@@ -171,13 +177,59 @@ struct RestaurantAccountView: View {
                     }
                 }
                 
+                Section(header: Text("Reports")) {
+                    NavigationLink(destination: SalesReportsView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                            Text("Sales Reports")
+                            Spacer()
+                        }
+                    }
+                    
+                    NavigationLink(destination: BestSellingDishesView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "star.circle.fill")
+                            Text("Best Selling Dishes")
+                            Spacer()
+                        }
+                    }
+                }
+                
+                Section(header: Text("Orders Management")) {
+                    NavigationLink(destination: ScheduledOrdersView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "calendar.badge.clock")
+                            Text("Scheduled Orders")
+                            Spacer()
+                        }
+                    }
+                }
+                
+                Section(header: Text("Promotions")) {
+                    NavigationLink(destination: SpecialDiscountsView(authViewModel: authViewModel)) {
+                        HStack {
+                            Image(systemName: "tag.fill")
+                            Text("Special Discounts")
+                            Spacer()
+                        }
+                    }
+                }
+                
                 Section(header: Text("Admin Support")) {
-                    NavigationLink(destination: RestaurantChatView(authViewModel: authViewModel)) {
+                    NavigationLink(destination: RestaurantChatView(
+                        orderId: "admin_support", 
+                        customerId: "admin",
+                        customerName: "Admin Support",
+                        authViewModel: authViewModel)) {
                         HStack {
                             Image(systemName: "message.fill")
                             Text("Support Messages")
                             Spacer()
                         }
+                    }
+                    .onAppear {
+                        // Make sure user data is loaded before navigating
+                        authViewModel.loadUserProfile()
                     }
                 }
                 
@@ -222,7 +274,10 @@ struct RestaurantAccountView: View {
             }
             .preferredColorScheme(appSettings.isDarkMode ? .dark : .light)
             .onAppear {
-                loadStoreData()
+                setupRealtimeStoreUpdates()
+            }
+            .onDisappear {
+                removeStoreObservers()
             }
         }
         .background(appSettings.isDarkMode ? Color.black : Color.white)
@@ -230,105 +285,95 @@ struct RestaurantAccountView: View {
         .edgesIgnoringSafeArea(.all)
     }
     
-    private func loadStoreData() {
+    private func setupRealtimeStoreUpdates() {
         guard let userId = authViewModel.currentUserId else { return }
         
-        print("DEBUG: Loading restaurant data for user: \(userId)")
+        print("DEBUG: Setting up real-time store updates for restaurant ID: \(userId)")
         
         // Initialize with default values first
         self.storeInfo = StoreInfo.defaultInfo(from: authViewModel)
         
-        let db = Database.database().reference()
-        
-        // Loading indicator
-        let group = DispatchGroup()
-        
-        // Load store_info for address and other details
-        group.enter()
-        print("DEBUG: Fetching store_info")
-        db.child("restaurants").child(userId).child("store_info").observeSingleEvent(of: .value) { snapshot in
-            defer { group.leave() }
-            
+        // Set up real-time listeners for store_info
+        let storeInfoRef = databaseRef.child("restaurants").child(userId).child("store_info")
+        storeInfoRef.observe(.value) { snapshot, _ in
             if snapshot.exists() {
-                print("DEBUG: Found store_info data")
+                print("DEBUG: Real-time update received for store_info")
                 if let value = snapshot.value as? [String: Any] {
-                    var info = StoreInfo()
-                    info.name = value["name"] as? String ?? self.authViewModel.fullName ?? "My Restaurant"
-                    info.phone = value["phone"] as? String ?? ""
-                    info.email = value["email"] as? String ?? self.authViewModel.email ?? ""
-                    info.description = value["description"] as? String ?? ""
-                    
-                    // Get the address from store_info
-                    info.address = value["address"] as? String ?? ""
-                    print("DEBUG: Loaded store_info address: \(info.address)")
-                    
-                    // Extract price range data
-                    if let priceRangeData = value["price_range"] as? [String: Any] {
-                        let min = priceRangeData["min"] as? Int ?? 5
-                        let max = priceRangeData["max"] as? Int ?? 25
-                        info.priceRange = PriceRange(min: min, max: max)
+                    DispatchQueue.main.async {
+                        var info = StoreInfo()
+                        info.name = value["name"] as? String ?? self.authViewModel.fullName ?? "My Restaurant"
+                        info.phone = value["phone"] as? String ?? ""
+                        info.email = value["email"] as? String ?? self.authViewModel.email ?? ""
+                        info.description = value["description"] as? String ?? ""
+                        
+                        // Get the address from store_info
+                        info.address = value["address"] as? String ?? ""
+                        print("DEBUG: Real-time store_info address: \(info.address)")
+                        
+                        // Extract price range data
+                        if let priceRangeData = value["price_range"] as? [String: Any] {
+                            let min = priceRangeData["min"] as? Int ?? 5
+                            let max = priceRangeData["max"] as? Int ?? 25
+                            info.priceRange = PriceRange(min: min, max: max)
+                        }
+                        
+                        self.storeInfo = info
                     }
-                    
-                    self.storeInfo = info
                 }
             } else {
-                print("DEBUG: No store_info data found, using defaults")
+                print("DEBUG: No store_info data found in real-time update, using defaults")
             }
         }
         
-        // Load address from location as a fallback if store_info address is empty
-        group.enter()
-        print("DEBUG: Fetching location data for address fallback")
-        db.child("restaurants").child(userId).child("location").observeSingleEvent(of: .value) { snapshot in
-            defer { group.leave() }
-            
+        // Set up real-time listener for location (as a fallback for address)
+        let locationRef = databaseRef.child("restaurants").child(userId).child("location")
+        locationRef.observe(.value) { snapshot, _ in
             if snapshot.exists() {
-                print("DEBUG: Found location data")
+                print("DEBUG: Real-time update received for location")
                 if let value = snapshot.value as? [String: Any],
                    let address = value["address"] as? String, 
                    !address.isEmpty {
-                    print("DEBUG: Found address in location: \(address)")
+                    print("DEBUG: Real-time location address: \(address)")
                     
                     // Only update if store_info address is empty
-                    if self.storeInfo.address.isEmpty {
-                        print("DEBUG: Using location address as store_info address is empty")
-                        self.storeInfo.address = address
+                    DispatchQueue.main.async {
+                        if self.storeInfo.address.isEmpty {
+                            print("DEBUG: Using location address as store_info address is empty")
+                            self.storeInfo.address = address
+                        }
                     }
-                } else {
-                    print("DEBUG: No valid address found in location data")
                 }
-            } else {
-                print("DEBUG: No location data found")
             }
         }
         
-        // Load store hours
-        group.enter()
-        print("DEBUG: Fetching store hours")
-        db.child("restaurants").child(userId).child("store_hours").observeSingleEvent(of: .value) { snapshot in
-            defer { group.leave() }
-            
-            if snapshot.exists() {
-                if let value = snapshot.value as? [String: Any] {
-                    do {
-                        let data = try JSONSerialization.data(withJSONObject: value)
-                        let hours = try JSONDecoder().decode(StoreHours.self, from: data)
+        // Set up real-time listener for store hours
+        let hoursRef = databaseRef.child("restaurants").child(userId).child("store_hours")
+        hoursRef.observe(.value) { snapshot, _ in
+            if snapshot.exists(), let value = snapshot.value as? [String: Any] {
+                print("DEBUG: Real-time update received for store hours")
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: value)
+                    let hours = try JSONDecoder().decode(StoreHours.self, from: data)
+                    
+                    DispatchQueue.main.async {
                         self.storeHours = hours
-                        print("DEBUG: Successfully loaded store hours")
-                    } catch {
-                        print("ERROR: Failed to decode store hours: \(error)")
                     }
+                    
+                    print("DEBUG: Successfully updated store hours from real-time data")
+                } catch {
+                    print("ERROR: Failed to decode store hours: \(error)")
                 }
-            } else {
-                print("DEBUG: No store hours data found")
             }
         }
+    }
+    
+    private func removeStoreObservers() {
+        guard let userId = authViewModel.currentUserId else { return }
         
-        // Wait for all data to load
-        group.notify(queue: .main) {
-            print("DEBUG: All restaurant data loaded")
-            print("DEBUG: Final address value: \(self.storeInfo.address)")
-        }
+        print("DEBUG: Removing Firebase observers for restaurant profile")
+        databaseRef.child("restaurants").child(userId).child("store_info").removeAllObservers()
+        databaseRef.child("restaurants").child(userId).child("location").removeAllObservers()
+        databaseRef.child("restaurants").child(userId).child("store_hours").removeAllObservers()
     }
 }
 

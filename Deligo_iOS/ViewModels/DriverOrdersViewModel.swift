@@ -48,7 +48,6 @@ class DriverOrdersViewModel: ObservableObject {
                 .queryEqual(toValue: self.driverId)
                 .observe(.value) { [weak self] (snapshot: DataSnapshot) in
                     guard let self = self else { return }
-                    self.isLoading = false
                     
                     var orders: [DriverOrder] = []
                     
@@ -64,13 +63,54 @@ class DriverOrdersViewModel: ObservableObject {
                         }
                     }
                     
-                    // Sort orders by assignment time (most recent first)
-                    orders.sort { $0.createdAt > $1.createdAt }
-                    
-                    DispatchQueue.main.async {
-                        self.assignedOrders = orders
-                    }
+                    // Also query for orders with order_status "assigned_driver" that might not have driver ID set yet
+                    self.ordersRef
+                        .queryOrdered(byChild: "order_status")
+                        .queryEqual(toValue: "assigned_driver")
+                        .observeSingleEvent(of: .value) { assignedSnapshot in
+                            
+                            for child in assignedSnapshot.children {
+                                guard let snapshot = child as? DataSnapshot,
+                                      let orderData = snapshot.value as? [String: Any] else { continue }
+                                
+                                // Check if this order is already in our list
+                                let orderId = snapshot.key
+                                if !orders.contains(where: { $0.id == orderId }) {
+                                    let order = DriverOrder(id: snapshot.key, data: orderData)
+                                    orders.append(order)
+                                    
+                                    // Automatically assign this driver to the order
+                                    self.assignDriverToOrder(orderId: orderId)
+                                }
+                            }
+                            
+                            // Sort orders by assignment time (most recent first)
+                            orders.sort { $0.createdAt > $1.createdAt }
+                            
+                            DispatchQueue.main.async {
+                                self.assignedOrders = orders
+                                self.isLoading = false
+                            }
+                        }
                 }
+        }
+    }
+    
+    // Helper method to assign the driver to an order
+    private func assignDriverToOrder(orderId: String) {
+        let updates: [String: Any] = [
+            "driverId": driverId,
+            "status": "in_progress",
+            "order_status": "assigned_driver",
+            "updatedAt": ServerValue.timestamp()
+        ]
+        
+        ordersRef.child(orderId).updateChildValues(updates) { error, _ in
+            if let error = error {
+                print("Error assigning driver to order: \(error.localizedDescription)")
+            } else {
+                print("Successfully assigned driver to order: \(orderId)")
+            }
         }
     }
     
@@ -78,19 +118,157 @@ class DriverOrdersViewModel: ObservableObject {
         isLoading = true
         
         var updates: [String: Any] = [
-            "status": status.rawValue,
             "updatedAt": ServerValue.timestamp()
         ]
         
-        // If the status is "accepted", also update the order_status to "driver_accepted"
+        // If the status is "accepted", set initial status to in_progress
         if status == .accepted {
+            updates["status"] = "in_progress"
             updates["order_status"] = "driver_accepted"
+            
+            // Get order details to send notification
+            ordersRef.child(orderId).observeSingleEvent(of: .value) { [weak self] snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Accepted!",
+                        body: "Your order from \(restaurantName) has been accepted and is being prepared.",
+                        data: [
+                            "orderId": orderId,
+                            "status": "in_progress",
+                            "orderStatus": "driver_accepted",
+                            "type": "order_accepted"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": "in_progress",
+                                "newOrderStatus": "driver_accepted"
+                            ]
+                        )
+                    }
+                }
+            }
+        } else if status == .cancelled {
+            updates["status"] = "cancelled"
+            updates["order_status"] = "rejected"
+            
+            // Get order details to send notification
+            ordersRef.child(orderId).observeSingleEvent(of: .value) { [weak self] snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Rejected",
+                        body: "Your order from \(restaurantName) has been rejected by the driver.",
+                        data: [
+                            "orderId": orderId,
+                            "status": "cancelled",
+                            "orderStatus": "rejected",
+                            "type": "order_rejected"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": "cancelled",
+                                "newOrderStatus": "rejected"
+                            ]
+                        )
+                    }
+                }
+            }
         } else if status == .pickedUp {
             updates["order_status"] = "picked_up"
-        } else if status == .delivering {
-            updates["order_status"] = "delivering"
+            
+            // Get order details to send notification
+            ordersRef.child(orderId).observeSingleEvent(of: .value) { [weak self] snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Picked Up!",
+                        body: "Your order from \(restaurantName) has been picked up and is on its way to you.",
+                        data: [
+                            "orderId": orderId,
+                            "status": "in_progress",
+                            "orderStatus": "picked_up",
+                            "type": "order_picked_up"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": "in_progress",
+                                "newOrderStatus": "picked_up"
+                            ]
+                        )
+                    }
+                }
+            }
         } else if status == .delivered {
+            updates["status"] = "delivered"
             updates["order_status"] = "delivered"
+            
+            // Get order details to send notification
+            ordersRef.child(orderId).observeSingleEvent(of: .value) { [weak self] snapshot in
+                if let orderData = snapshot.value as? [String: Any],
+                   let userId = orderData["userId"] as? String,
+                   let restaurantName = orderData["restaurantName"] as? String {
+                    
+                    // Send push notification to customer
+                    NotificationManager.shared.sendPushNotification(
+                        to: userId,
+                        title: "Order Delivered!",
+                        body: "Your order from \(restaurantName) has been delivered. Enjoy your meal!",
+                        data: [
+                            "orderId": orderId,
+                            "status": "delivered",
+                            "orderStatus": "delivered",
+                            "type": "order_delivered"
+                        ]
+                    )
+                    
+                    // Post local notification
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("OrderStatusChanged"),
+                            object: nil,
+                            userInfo: [
+                                "orderId": orderId,
+                                "newStatus": "delivered",
+                                "newOrderStatus": "delivered"
+                            ]
+                        )
+                    }
+                }
+            }
         }
         
         ordersRef.child(orderId).updateChildValues(updates) { [weak self] error, _ in

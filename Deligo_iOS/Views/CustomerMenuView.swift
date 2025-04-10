@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseDatabase
+import Foundation
 
 struct CustomerMenuView: View {
     @State private var menuItems: [MenuItem] = []
@@ -85,10 +86,18 @@ struct CustomerMenuView: View {
                         Text("•")
                             .foregroundColor(.gray)
                             
-                        Text(restaurant.priceRange)
-                            .font(.subheadline)
-                            .foregroundColor(Color(hex: "F4A261"))
-                            .fontWeight(.medium)
+                        HStack(spacing: 4) {
+                            Text(restaurant.priceRange)
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: "F4A261"))
+                                .fontWeight(.medium)
+                            
+                            if restaurant.minPrice > 0 || restaurant.maxPrice > 0 {
+                                Text("$\(restaurant.minPrice)-\(restaurant.maxPrice)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
                     
                     HStack {
@@ -97,6 +106,17 @@ struct CustomerMenuView: View {
                         Text(String(format: "%.1f", restaurant.rating))
                         Text("(\(restaurant.numberOfRatings))")
                             .foregroundColor(.gray)
+                            
+                        Spacer()
+                            
+                        NavigationLink(destination: RestaurantCommentsView(restaurantId: restaurant.id)) {
+                            HStack {
+                                Image(systemName: "bubble.left.fill")
+                                Text("View Reviews")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "F4A261"))
+                        }
                     }
                     .font(.subheadline)
                 }
@@ -200,34 +220,33 @@ struct CustomerMenuView: View {
                 
                 if !isAvailable { continue } // Skip unavailable items for customers
                 
-                let options: [CustomizationOption] = customizationOptions.map { optionDict in
-                    CustomizationOption(
-                        id: optionDict["id"] as? String ?? "",
-                        name: optionDict["name"] as? String ?? "",
-                        type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
-                        required: optionDict["required"] as? Bool ?? false,
-                        options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
-                            CustomizationItem(
-                                id: itemDict["id"] as? String ?? "",
-                                name: itemDict["name"] as? String ?? "",
-                                price: itemDict["price"] as? Double ?? 0.0
-                            )
-                        },
-                        maxSelections: optionDict["maxSelections"] as? Int ?? 1
-                    )
-                }
-                
-                let item = MenuItem(
+                let menuItem = MenuItem(
                     id: id,
+                    restaurantId: restaurant.id,
                     name: name,
                     description: description,
                     price: price,
                     imageURL: imageURL,
                     category: category,
                     isAvailable: isAvailable,
-                    customizationOptions: options
+                    customizationOptions: customizationOptions.map { optionDict in
+                        CustomizationOption(
+                            id: optionDict["id"] as? String ?? UUID().uuidString,
+                            name: optionDict["name"] as? String ?? "",
+                            type: CustomizationType(rawValue: optionDict["type"] as? String ?? "single") ?? .single,
+                            required: optionDict["required"] as? Bool ?? false,
+                            options: (optionDict["options"] as? [[String: Any]] ?? []).map { itemDict in
+                                CustomizationItem(
+                                    id: itemDict["id"] as? String ?? UUID().uuidString,
+                                    name: itemDict["name"] as? String ?? "",
+                                    price: itemDict["price"] as? Double ?? 0.0
+                                )
+                            },
+                            maxSelections: optionDict["maxSelections"] as? Int ?? 1
+                        )
+                    }
                 )
-                items.append(item)
+                items.append(menuItem)
             }
             
             self.menuItems = items
@@ -465,6 +484,7 @@ struct ItemDetailView: View {
         let cartItem = CartItem(
             id: UUID().uuidString,
             menuItemId: item.id,
+            restaurantId: item.restaurantId,
             name: item.name,
             description: item.description,
             price: item.price,
@@ -580,6 +600,8 @@ struct CategoryHeader: View {
             phone: "123-456-7890",
             cuisine: "Various",
             priceRange: "$$",
+            minPrice: 10,
+            maxPrice: 30,
             rating: 4.5,
             numberOfRatings: 100,
             address: "123 Test Street",
@@ -587,6 +609,7 @@ struct CategoryHeader: View {
             isOpen: true,
             latitude: 43.651070,  // Toronto coordinates for preview
             longitude: -79.347015,
+            discount: nil,  // Add discount parameter
             distance: 1500  // 1.5 km
         ),
         authViewModel: AuthViewModel()

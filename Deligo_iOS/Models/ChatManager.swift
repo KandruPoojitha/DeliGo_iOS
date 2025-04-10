@@ -51,7 +51,7 @@ class ChatManager: ObservableObject {
                     newMessages.append(message)
                     
                     // Mark message as read if it's from admin and user is customer
-                    if !self.isAdmin && message.senderType == .admin && !message.isRead {
+                    if !self.isAdmin && dict["senderType"] as? String == "admin" && !(dict["isRead"] as? Bool ?? false) {
                         self.chatRef.child(threadId).child(message.id).child("isRead").setValue(true)
                     }
                 }
@@ -78,29 +78,28 @@ class ChatManager: ObservableObject {
         let timestamp = Date().timeIntervalSince1970 * 1000
         
         // Determine the correct sender type based on userRole
-        let senderType: ChatMessage.SenderType
+        let senderType: String
         if isAdmin {
-            senderType = .admin
+            senderType = "admin"
         } else {
             switch userRole {
             case "Restaurant":
-                senderType = .restaurant
+                senderType = "restaurant"
             case "Driver":
-                senderType = .driver
+                senderType = "driver"
             default:
-                senderType = .customer
+                senderType = "customer"
             }
         }
         
-        let newMessage = ChatMessage(
-            id: messageId,
-            senderId: userId,
-            senderName: userName,
-            senderType: senderType,
-            message: message,
-            timestamp: timestamp,
-            isRead: false
-        )
+        let messageData: [String: Any] = [
+            "senderId": userId,
+            "senderName": userName,
+            "senderType": senderType,
+            "message": message,
+            "timestamp": timestamp,
+            "isRead": false
+        ]
         
         // Update the thread with last message info
         let threadUpdate: [String: Any] = [
@@ -125,7 +124,7 @@ class ChatManager: ObservableObject {
         }
         
         // Save the message
-        chatRef.child(threadId).child(messageId).setValue(newMessage.toDict()) { error, _ in
+        chatRef.child(threadId).child(messageId).setValue(messageData) { error, _ in
             if let error = error {
                 self.error = "Failed to send message: \(error.localizedDescription)"
                 completion(false)

@@ -15,15 +15,23 @@ class CartManager: ObservableObject {
         self.db = Database.database().reference()
         
         if userId.isEmpty {
-            // Create a dummy reference that won't be used
             self.cartRef = self.db.child("temp_cart")
             print("CartManager initialized with empty userId. Using temporary reference.")
-            // Don't load cart items for empty userId
         } else {
             self.cartRef = self.db.child("customers").child(userId).child("cart")
             print("CartManager initialized with userId: \(userId)")
             loadCartItems()
         }
+    }
+    
+    var totalCartPrice: Double {
+        cartItems.reduce(0) { $0 + ($1.totalPrice * Double($1.quantity)) }
+    }
+    
+    func validateRestaurants() -> Bool {
+        guard !cartItems.isEmpty else { return true }
+        let firstRestaurantId = cartItems[0].restaurantId
+        return cartItems.allSatisfy { $0.restaurantId == firstRestaurantId }
     }
     
     func loadCartItems() {
@@ -35,7 +43,6 @@ class CartManager: ObservableObject {
         isLoading = true
         print("Loading cart items for user: \(userId)")
         
-        // Check connection status
         let connectedRef = Database.database().reference(withPath: ".info/connected")
         connectedRef.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
@@ -63,12 +70,12 @@ class CartManager: ObservableObject {
                     print("Processing cart item with ID: \(snapshot.key)")
                     let id = snapshot.key
                     let menuItemId = dict["menuItemId"] as? String ?? ""
+                    let restaurantId = dict["restaurantId"] as? String ?? ""
                     let name = dict["name"] as? String ?? ""
                     let description = dict["description"] as? String ?? ""
                     let price = dict["price"] as? Double ?? 0.0
                     let imageURL = dict["imageURL"] as? String
                     
-                    // Debug the image URL
                     if let imageURL = imageURL, !imageURL.isEmpty {
                         print("Cart item has image URL: \(imageURL)")
                     } else {
@@ -79,7 +86,6 @@ class CartManager: ObservableObject {
                     let specialInstructions = dict["specialInstructions"] as? String ?? ""
                     let totalPrice = dict["totalPrice"] as? Double ?? 0.0
                     
-                    // Parse customizations
                     var customizations: [String: [CustomizationSelection]] = [:]
                     if let customizationsDict = dict["customizations"] as? [String: [[String: Any]]] {
                         for (optionId, selections) in customizationsDict {
@@ -113,6 +119,7 @@ class CartManager: ObservableObject {
                     let cartItem = CartItem(
                         id: id,
                         menuItemId: menuItemId,
+                        restaurantId: restaurantId,
                         name: name,
                         description: description,
                         price: price,
@@ -140,10 +147,14 @@ class CartManager: ObservableObject {
             return
         }
         
+        if !cartItems.isEmpty && cartItems[0].restaurantId != item.restaurantId {
+            error = "Please complete or clear your current order before adding items from a different restaurant"
+            return
+        }
+        
         isLoading = true
         print("Adding item to cart: \(item.name)")
         
-        // Debug the image URL
         if let imageURL = item.imageURL {
             print("Item has image URL: \(imageURL)")
         } else {
@@ -152,10 +163,11 @@ class CartManager: ObservableObject {
         
         let cartData: [String: Any] = [
             "menuItemId": item.menuItemId,
+            "restaurantId": item.restaurantId,
             "name": item.name,
             "description": item.description,
             "price": item.price,
-            "imageURL": item.imageURL ?? "",  // Ensure we store empty string instead of nil
+            "imageURL": item.imageURL ?? "",
             "quantity": item.quantity,
             "customizations": item.customizations.mapValues { selections in
                 selections.map { selection in
@@ -246,9 +258,5 @@ class CartManager: ObservableObject {
                 }
             }
         }
-    }
-    
-    var totalCartPrice: Double {
-        cartItems.reduce(0) { $0 + $1.totalPrice }
     }
 } 

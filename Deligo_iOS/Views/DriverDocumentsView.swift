@@ -68,7 +68,7 @@ struct DriverDocumentsView: View {
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color(hex: "F4A261"))
+                                    .background(Color("F4A261"))
                                     .cornerRadius(25)
                             }
                         }

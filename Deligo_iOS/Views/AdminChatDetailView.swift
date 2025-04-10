@@ -55,7 +55,7 @@ struct AdminChatDetailView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatManager.messages) { message in
-                            MessageBubble(message: message, isFromCurrentUser: message.senderType == .admin)
+                            MessageBubble(message: message, isFromCurrentUser: message.senderType == "admin")
                                 .id(message.id)
                         }
                     }

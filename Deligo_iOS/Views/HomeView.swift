@@ -18,7 +18,7 @@ struct HomeView: View {
                     }
                 case "Driver":
                     if documentStatus == "approved" {
-                        DriverHomeView(authViewModel: authViewModel)
+                        DriverMainView(authViewModel: authViewModel)
                     } else {
                         DriverDocumentsView(authViewModel: authViewModel)
                     }
@@ -179,6 +179,7 @@ struct UserManagementView: View {
                             ForEach(viewModel.users) { user in
                                 UserCard(user: user)
                                     .padding(.horizontal)
+                                    .id("\(user.id)-\(user.blocked ? "blocked" : "unblocked")") // Force refresh when block status changes
                             }
                         }
                         .padding(.vertical, 8)
@@ -188,65 +189,121 @@ struct UserManagementView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(.systemGroupedBackground))
+        .onAppear {
+            // If we had a selected role previously, refresh the data
+            if let role = selectedRole {
+                viewModel.fetchUsers(for: role)
+            }
+        }
+        .onDisappear {
+            // View model will clean up its own listeners
+        }
     }
 }
 
 struct UserCard: View {
     @State var user: UserData
     @State private var showDetailView = false
+    @StateObject private var viewModel = UserManagementViewModel()
+    @State private var isUpdating = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
-        Button(action: {
-            if user.role == .restaurant || user.role == .driver {
-                showDetailView = true
-            }
-        }) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Name row
-                HStack(spacing: 12) {
-                    Image(systemName: "person.circle.fill")
-                        .foregroundColor(Color(hex: "F4A261"))
-                        .font(.system(size: 36))
+        VStack(alignment: .leading, spacing: 12) {
+            // Name row with status indicator
+            HStack(spacing: 12) {
+                Image(systemName: "person.circle.fill")
+                    .foregroundColor(Color(hex: "F4A261"))
+                    .font(.system(size: 36))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(user.fullName)
+                        .font(.headline)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(user.fullName)
-                            .font(.headline)
-                        
-                        if let status = user.documentStatus {
-                            Text(status.capitalized)
-                                .font(.caption)
-                                .foregroundColor(statusColor(for: status))
-                        }
+                    if let status = user.documentStatus {
+                        Text(status.capitalized)
+                            .font(.caption)
+                            .foregroundColor(statusColor(for: status))
                     }
                 }
                 
-                // Email row
-                HStack {
-                    Image(systemName: "envelope.fill")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 14))
-                        .frame(width: 20)
-                    Text(user.email)
-                        .font(.subheadline)
-                }
+                Spacer()
                 
-                // Phone row
-                HStack {
-                    Image(systemName: "phone.fill")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 14))
-                        .frame(width: 20)
-                    Text(user.phone)
-                        .font(.subheadline)
+                // Show blocked status indicator
+                if user.blocked {
+                    Text("Blocked")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red)
+                        .cornerRadius(4)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            
+            // Email row
+            HStack {
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                Text(user.email)
+                    .font(.subheadline)
+            }
+            
+            // Phone row
+            HStack {
+                Image(systemName: "phone.fill")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                Text(user.phone)
+                    .font(.subheadline)
+            }
+            
+            // Debug indicator (will be removed in production)
+            Text("Blocked status: \(user.blocked ? "Yes" : "No")")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.vertical, 4)
+            
+            // Add block/unblock button for all users
+            Divider()
+            
+            Button(action: {
+                toggleUserBlock()
+            }) {
+                HStack {
+                    Image(systemName: user.blocked ? "lock.open.fill" : "lock.fill")
+                    Text(user.blocked ? "Unblock User" : "Block User")
+                    
+                    if isUpdating {
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(user.blocked ? Color.green.opacity(0.7) : Color.red.opacity(0.7))
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .disabled(isUpdating)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if user.role == .restaurant || user.role == .driver {
+                showDetailView = true
+            }
+        }
         .sheet(isPresented: $showDetailView) {
             if user.role == .restaurant {
                 RestaurantDetailView(user: $user)
@@ -254,6 +311,55 @@ struct UserCard: View {
                 DriverDetailView(user: $user)
             }
         }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .onAppear {
+            setupNotifications()
+        }
+        .onDisappear {
+            removeObservers()
+        }
+    }
+    
+    private func setupNotifications() {
+        print("👤 UserCard setup for user: \(user.fullName) (ID: \(user.id)) - Initial blocked status: \(user.blocked)")
+        
+        let rolePath = "\(user.role.rawValue.lowercased())s"
+        let db = Database.database().reference()
+        
+        let blockedPath = "\(rolePath)/\(user.id)/blocked"
+        print("Setting up Firebase observer at path: \(blockedPath)")
+        
+        db.child(rolePath).child(user.id).child("blocked").observe(.value) { snapshot in
+            print("Firebase snapshot received: \(snapshot.key) = \(String(describing: snapshot.value))")
+            
+            if let isBlocked = snapshot.value as? Bool {
+                print("UserCard received real-time update - User \(self.user.id) blocked status is now: \(isBlocked)")
+                
+                // Update the local user model
+                DispatchQueue.main.async {
+                    if self.user.blocked != isBlocked {
+                        self.user.blocked = isBlocked
+                        print("Updated UserCard block status to: \(isBlocked)")
+                    }
+                }
+            }
+        }
+    }
+    
+    private func removeObservers() {
+        // Remove Firebase observers
+        let rolePath = "\(user.role.rawValue.lowercased())s"
+        let db = Database.database().reference()
+        
+        let blockedPath = "\(rolePath)/\(user.id)/blocked"
+        print("📡 Removing Firebase observer at path: \(blockedPath)")
+        
+        // Remove the specific observer for blocked status
+        db.child(rolePath).child(user.id).child("blocked").removeAllObservers()
     }
     
     private func statusColor(for status: String) -> Color {
@@ -266,6 +372,28 @@ struct UserCard: View {
             return .orange
         default:
             return .gray
+        }
+    }
+    
+    private func toggleUserBlock() {
+        isUpdating = true
+        print("🔄 Starting to toggle block status for user: \(user.id) - Current blocked status: \(user.blocked)")
+        
+        viewModel.toggleUserBlock(userId: user.id, userRole: user.role, currentBlocked: user.blocked) { error in
+            isUpdating = false
+            if let error = error {
+                errorMessage = "Failed to update user: \(error.localizedDescription)"
+                showError = true
+                print("❌ Error updating block status: \(error.localizedDescription)")
+            } else {
+                // Temporarily update the UI until the Firebase listener kicks in
+                // This makes the UI feel more responsive
+                DispatchQueue.main.async {
+                    self.user.blocked = !self.user.blocked
+                    print("✅ Temporarily updated UI to blocked status: \(self.user.blocked)")
+                }
+                print("✅ Successfully requested block status change")
+            }
         }
     }
 }
@@ -531,6 +659,7 @@ struct UserData: Identifiable {
     let email: String
     let phone: String
     let role: UserRole
+    var blocked: Bool = false
     // Document related fields
     var documentStatus: String?
     var documentsSubmitted: Bool?
@@ -569,6 +698,9 @@ struct DriverDetailView: View {
     @State private var selectedImageURL: String?
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var driverRating: Double?
+    @State private var totalRides: Int?
+    @State private var rejectedOrdersCount: Int?
     
     var body: some View {
         NavigationView {
@@ -595,6 +727,41 @@ struct DriverDetailView: View {
                             }
                         }
                         .padding(.vertical, 8)
+                    }
+                    
+                    // Rating Section (Only shown for approved drivers)
+                    if user.documentStatus?.lowercased() == "approved" {
+                        GroupBox(label: Text("Performance").bold()) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                if let rating = driverRating {
+                                    HStack {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.yellow)
+                                        Text("Rating: \(String(format: "%.1f", rating))")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                
+                                if let rides = totalRides {
+                                    HStack {
+                                        Image(systemName: "car.fill")
+                                            .foregroundColor(Color(hex: "F4A261"))
+                                        Text("Total Rides: \(rides)")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                
+                                if let rejected = rejectedOrdersCount {
+                                    HStack {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                        Text("Rejected Orders: \(rejected)")
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
                     }
                     
                     // Documents Section
@@ -680,6 +847,11 @@ struct DriverDetailView: View {
                     }
                 }
             }
+            .onAppear {
+                if user.documentStatus?.lowercased() == "approved" {
+                    loadDriverRating()
+                }
+            }
         }
         .sheet(isPresented: $showDocumentPreview) {
             if let url = selectedImageURL {
@@ -714,6 +886,62 @@ struct DriverDetailView: View {
                 showError = true
             } else {
                 user.documentStatus = status
+            }
+        }
+    }
+    
+    private func loadDriverRating() {
+        let db = Database.database().reference()
+        
+        // Load ratings
+        db.child("drivers").child(user.id).child("ratingsandcomments").child("rating").observeSingleEvent(of: .value) { snapshot in
+            if let ratings = snapshot.value as? [String: Int] {
+                // Calculate average rating
+                var totalRating = 0
+                for (_, rating) in ratings {
+                    totalRating += rating
+                }
+                let averageRating = Double(totalRating) / Double(ratings.count)
+                
+                DispatchQueue.main.async {
+                    self.driverRating = averageRating
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.driverRating = 0.0
+                }
+            }
+        }
+        
+        // Load rejected orders count
+        db.child("drivers").child(user.id).child("rejectedOrdersCount").observeSingleEvent(of: .value) { snapshot in
+            if let count = snapshot.value as? Int {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = count
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.rejectedOrdersCount = 0
+                }
+            }
+        }
+        
+        // Load total completed rides
+        db.child("orders").queryOrdered(byChild: "driverId").queryEqual(toValue: user.id).observeSingleEvent(of: .value) { snapshot in
+            var completedRides = 0
+            
+            for child in snapshot.children {
+                guard let orderSnapshot = child as? DataSnapshot,
+                      let orderData = orderSnapshot.value as? [String: Any],
+                      let status = orderData["status"] as? String,
+                      status.lowercased() == "delivered" else {
+                    continue
+                }
+                completedRides += 1
+            }
+            
+            DispatchQueue.main.async {
+                self.totalRides = completedRides
             }
         }
     }

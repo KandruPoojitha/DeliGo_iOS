@@ -12,7 +12,7 @@ struct DocumentsUnderReviewView: View {
                     authViewModel.logout()
                 }) {
                     Text("Logout")
-                        .foregroundColor(Color(hex: "F4A261"))
+                        .foregroundColor(Color("F4A261"))
                 }
                 .padding()
             }

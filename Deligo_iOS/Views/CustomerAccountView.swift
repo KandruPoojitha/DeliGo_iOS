@@ -12,6 +12,12 @@ struct CustomerAccountView: View {
     @State private var alertMessage = ""
     @State private var isLoading = true
     @State private var navigateToLogin = false
+    private var databaseRef: DatabaseReference = Database.database().reference()
+    
+    // Add explicit initializer to fix accessibility
+    public init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+    }
     
     var body: some View {
         NavigationView {
@@ -59,6 +65,24 @@ struct CustomerAccountView: View {
                         NavigationLink(destination: FAQView()) {
                             Label("FAQ", systemImage: "questionmark.circle")
                         }
+                        
+                        Button(action: {
+                            let appURL = "https://apps.apple.com/app/deligo" // Replace with your actual App Store URL
+                            let text = "Check out DeliGo - Your favorite food delivery app! Download it here: \(appURL)"
+                            let activityVC = UIActivityViewController(
+                                activityItems: [text],
+                                applicationActivities: nil
+                            )
+                            
+                            // Present the share sheet
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                               let window = windowScene.windows.first,
+                               let rootVC = window.rootViewController {
+                                rootVC.present(activityVC, animated: true)
+                            }
+                        }) {
+                            Label("Refer to Friends", systemImage: "square.and.arrow.up")
+                        }
                     }
                     
                     // Logout Button
@@ -100,7 +124,11 @@ struct CustomerAccountView: View {
                 Button("OK", role: .cancel) { }
             }
             .onAppear {
-                loadUserProfile()
+                setupRealtimeProfileUpdates()
+            }
+            .onDisappear {
+                // Remove observers when view disappears
+                removeProfileObservers()
             }
             .fullScreenCover(isPresented: $navigateToLogin) {
                 LoginView()
@@ -108,43 +136,23 @@ struct CustomerAccountView: View {
         }
     }
     
-    private func loadUserProfile() {
-        isLoading = true
+    private func setupRealtimeProfileUpdates() {
         guard let userId = authViewModel.currentUserId else {
             isLoading = false
             return
         }
         
-        let database = Database.database().reference()
+        isLoading = true
+        print("DEBUG: Setting up real-time profile updates for user ID: \(userId)")
         
-        // Try to load from the customers path as shown in the Firebase screenshot
-        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot in
+        // First try to observe the customers path
+        let customerRef = databaseRef.child("customers").child(userId)
+        customerRef.observe(.value) { snapshot, _ in
             if snapshot.exists(), let value = snapshot.value as? [String: Any] {
-                print("DEBUG: Found user data in customers path")
+                print("DEBUG: Real-time update received from customers path")
                 
-                // Extract user data from the customer record
-                self.fullName = value["fullName"] as? String ?? ""
-                self.phone = value["phone"] as? String ?? ""
-                self.email = value["email"] as? String ?? ""
-                
-                // If email is still empty, try to get it from Auth
-                if self.email.isEmpty, let user = Auth.auth().currentUser {
-                    self.email = user.email ?? ""
-                }
-                
-                self.isLoading = false
-            } else {
-                print("DEBUG: No user data found in customers path, trying users path as fallback")
-                
-                // Fallback to the users path if no data found in customers
-                database.child("users").child(userId).observeSingleEvent(of: .value) { snapshot in
-                    guard let value = snapshot.value as? [String: Any] else {
-                        print("DEBUG: No user data found in users path either")
-                        self.isLoading = false
-                        return
-                    }
-                    
-                    print("DEBUG: Found user data in users path")
+                DispatchQueue.main.async {
+                    // Extract user data from the customer record
                     self.fullName = value["fullName"] as? String ?? ""
                     self.phone = value["phone"] as? String ?? ""
                     self.email = value["email"] as? String ?? ""
@@ -156,8 +164,45 @@ struct CustomerAccountView: View {
                     
                     self.isLoading = false
                 }
+            } else {
+                print("DEBUG: No data found in customers path, trying users path")
+                
+                // If no data in customers, try the users path as fallback
+                let userRef = self.databaseRef.child("users").child(userId)
+                userRef.observe(.value) { userSnapshot, _ in
+                    DispatchQueue.main.async {
+                        if userSnapshot.exists(), let userData = userSnapshot.value as? [String: Any] {
+                            print("DEBUG: Real-time update received from users path")
+                            
+                            self.fullName = userData["fullName"] as? String ?? ""
+                            self.phone = userData["phone"] as? String ?? ""
+                            self.email = userData["email"] as? String ?? ""
+                            
+                            // If email is still empty, try to get it from Auth
+                            if self.email.isEmpty, let user = Auth.auth().currentUser {
+                                self.email = user.email ?? ""
+                            }
+                        } else {
+                            print("DEBUG: No user data found in either path")
+                            // Try to at least get the email from Auth
+                            if let user = Auth.auth().currentUser {
+                                self.email = user.email ?? ""
+                            }
+                        }
+                        
+                        self.isLoading = false
+                    }
+                }
             }
         }
+    }
+    
+    private func removeProfileObservers() {
+        guard let userId = authViewModel.currentUserId else { return }
+        
+        print("DEBUG: Removing Firebase observers")
+        databaseRef.child("customers").child(userId).removeAllObservers()
+        databaseRef.child("users").child(userId).removeAllObservers()
     }
 }
 
@@ -216,42 +261,36 @@ struct EditProfileView: View {
             "phone": localPhone.trimmingCharacters(in: .whitespacesAndNewlines)
         ]
         
-        // First, check if user exists in the customers path
-        database.child("customers").child(userId).observeSingleEvent(of: .value) { snapshot in
-            if snapshot.exists() {
-                print("DEBUG: Updating user data in customers path")
-                // Update in customers path
-                database.child("customers").child(userId).updateChildValues(updates) { error, _ in
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        
-                        if let error = error {
-                            print("DEBUG: Error updating customer data: \(error.localizedDescription)")
-                            self.onError(error.localizedDescription)
-                        } else {
-                            print("DEBUG: Successfully updated customer data")
-                            self.fullName = self.localName
-                            self.phone = self.localPhone
-                            self.onSuccess()
-                        }
-                    }
-                }
+        print("DEBUG: Starting profile update for user: \(userId)")
+        
+        // Update in both locations to ensure consistency
+        let customersRef = database.child("customers").child(userId)
+        let usersRef = database.child("users").child(userId)
+        
+        // First update in the customers collection
+        customersRef.updateChildValues(updates) { error, _ in
+            if let error = error {
+                print("DEBUG: Error updating customer data: \(error.localizedDescription)")
+                // Don't call onError yet, still try users collection
             } else {
-                print("DEBUG: User not found in customers path, trying users path")
-                // Update in users path as fallback
-                database.child("users").child(userId).updateChildValues(updates) { error, _ in
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        
-                        if let error = error {
-                            print("DEBUG: Error updating user data: \(error.localizedDescription)")
-                            self.onError(error.localizedDescription)
-                        } else {
-                            print("DEBUG: Successfully updated user data")
-                            self.fullName = self.localName
-                            self.phone = self.localPhone
-                            self.onSuccess()
-                        }
+                print("DEBUG: Successfully updated customer data")
+                // Continue to update users collection as well
+            }
+            
+            // Also update in users collection to maintain data consistency
+            usersRef.updateChildValues(updates) { error, _ in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    if let error = error {
+                        print("DEBUG: Error updating user data: \(error.localizedDescription)")
+                        self.onError(error.localizedDescription)
+                    } else {
+                        print("DEBUG: Successfully updated user data")
+                        // Also manually update the UI immediately
+                        self.fullName = self.localName
+                        self.phone = self.localPhone
+                        self.onSuccess()
                     }
                 }
             }
